@@ -3,14 +3,14 @@ title: Numerically Stable Softmax and Cross Entropy
 date: 2022-12-15
 description: Tricks to make softmax and cross entropy calculations numerically stable.
 ---
-In this post, we'll look at some common tricks for overcoming the numerical instability of softmax and cross entropy loss.
+In this post, we'll take a look at softmax and cross entropy loss. We'll see that naive implementations result in numerically instability, and then we'll derive implementations that are numerically stable.
 
 ## Symbols
 ---
-* $\vec{x}$: Input vector of dimensionality $d$.
-* $y$: Correct class (scalar), $y \in [1\ldots K]$.
-* $f(x) = \hat{y}$: Output vector of our neural network, has dimensionality $K$.
-* $\log = \log_e = \ln$: We use $\log$ to denote the natural logarithm.
+* $x$: Input vector of dimensionality $d$.
+* $y$: Correct class, an integer on the range $y \in [1\ldots K]$.
+* $\hat{y}$: Raw outputs (i.e. logits) of our neural network, vector of dimensionality $K$.
+* We use $\log$ to denote the natural logarithm.
 
 ## Softmax
 ---
@@ -24,23 +24,20 @@ In code:
 def softmax(x):
     # assumes x is a vector
     return np.exp(x) / np.sum(np.exp(x))
-```
 
-An example of softmax in action:
-```python
-x = np.array([1.2, 2, -4, 0])
+x = np.array([1.2, 2, -4, 0.0])
 softmax(x)
 # outputs: [0.28310553, 0.63006295, 0.00156177, 0.08526975]
 ```
 
-However, for large inputs we start seeing some numerical instability:
+For large inputs we start seeing some numerical instability:
 ```python
-x = np.array([1.2, 2, -4, 0]) * 1000
+x = np.array([1.2, 2000, -4000, 0.0])
 softmax(x)
-# outputs: [nan, nan, 0.,  0.]
+# outputs: [0., nan, 0.,  0.]
 ```
 
-Floating point numbers aren't magic, they have limits. For example, `np.float64` has the following limits:
+Floating point numbers aren't magic, they have limits:
 ```python
 np.finfo(np.float64).max
 # 1.7976931348623157e+308, largest positive number
@@ -55,20 +52,20 @@ np.finfo(np.float64).smallest_subnormal
 When we go beyond these limits, we start seeing funky behaviour:
 ```python
 np.finfo(np.float64).max * 2 
-# inf, overflow
+# inf, overflow error
 
 np.inf - np.inf
 # nan, not a number error
 
 np.finfo(np.float64).smallest_subnormal / 2
-# 0.0, underflow
+# 0.0, underflow error
 ```
 
-Looking back at our softmax example, `softmax(np.array([1200, 2000, -4000, 0])) = [nan nan  0.  0.]`, we can see the nans are being cause by `np.inf / np.inf`. To avoid `nans`, we need to avoid `infs`. To avoid `infs`, we need to avoid overflows. To avoid overflows, we need to prevent our numbers from growing too large.
+Looking back at our softmax example that resulted in `[0., nan, 0.,  0.]`, we can see that the overflow of `np.exp(2000) = np.inf` is causing the `nan`, since we end up with `np.inf / np.inf = nan`. If we want to avoid `nans`, we need to avoid `infs`. To avoid `infs`, we need to avoid overflows. To avoid overflows, we need to prevent our numbers from growing too large.
 
-Underflows on the other hand don't seem quite as detrimental. Worst case scenario, we lose all precision and the resulting value becomes `0`, which is a lot better than `inf` and `nan`.
+Underflows on the other hand don't seem quite as detrimental. Worst case scenario, we get a result `0` and lose all precision (i.e. `np.exp(-4000) = 0)`. While this is not ideal, this is a lot better than running into `inf` and `nan`.
 
-Given the relative stability of floating point underflows vs overflow, how can we fix softmax?
+Given the relative stability of floating point underflows vs overflows, how can we fix softmax?
 
 Let's revisit our softmax equation and apply some tricks:
 $$
@@ -81,15 +78,19 @@ $$
 &= \frac{e^{x_i + \log C}}{\sum_j e^{x_j + \log C}} \\
 \end{align}
 $$
-Here, we're taking advantage of the  rule $a\cdot b^x = b^{x + \log_b a}$. The advantage of this version of softmax is that we can offset our inputs by any constant we choose. So if we want to prevent large numbers, we can simply set $\log C = -\max(x)$, giving us a numerically stable softmax:
+Here, we're taking advantage of the rule $a\cdot b^x = b^{x + \log_b a}$. As a result, we are given the ability to offset our inputs by any constant we choose. So, if we want to prevent large numbers, we can simply set $\log C = -\max(x)$:
 $$
 \text{softmax}(x)_i = \frac{e^{x_i - \max(x)}}{\sum_j e^{x_j - \max(x)}}
 $$
 
-This has the cool property that no matter how large our numbers are:
+This version is numerically stable:
 
-* Exponentiated values will always be less than or equal to $e^0 = 1$, preventing overflow.
-* The denominator will always be $>= 1$, preventing division by zero errors.
+* All exponentiated values will be between 0 and 1: $0 \leq e^{x_i - \max(x)} \leq 1$
+    * This prevents overflow errors (but we are still prone to underflows)
+* At least one of the exponentiated values is 1: $e^{x_i - \max(x)} = e^{ \max(x)- \max(x)} = e^0 = 1$
+    * i.e. at least one value is guarenteed not to underflow
+    * Our denominator will always be $>= 1$, preventing division by zero errors.
+    * We have at least one non-zero numerator, so softmax can't result in a zero vector
 
 In code:
 ```python
@@ -97,14 +98,12 @@ def softmax(x):
     # assumes x is a vector
     x = x - np.max(x)
     return np.exp(x) / np.sum(np.exp(x))
-```
 
-And it works! Even for large inputs!
-```python
 x = np.array([1.2, 2, -4, 0])
 softmax(x)
 # outputs: [0.28310553, 0.63006295, 0.00156177, 0.08526975]
 
+# works for large numbers!!!
 x = np.array([1.2, 2, -4, 0]) * 1000
 softmax(x)
 # outputs: [0., 1., 0., 0.]
@@ -116,11 +115,12 @@ The cross entropy between two probability distributions is defined as.
 $$
 H(p, q) = -\sum_i p_i\log(q_i)
 $$
-where $p$ and $q$ are probability vectors representing the two distributions, that is $p_i$ and $q_i$are the probabilities of event $i$ occuring for $p$ and $q$ respectively.
+where $p$ and $q$ are our probability distributions represented as probability vectors (that is $p_i$ and $q_i$are the probabilities of event $i$ occuring for $p$ and $q$ respectively).
 
-In the context of machine learning, we use cross entropy as a loss function where:
-* $q$ is our predicted probabilities vector (i.e. the softmax of our network outputs): $q = \text{softmax}(f(x))$
-* $p$  is a one-hot encoded vector of our label, that is a vector of zeros with a single 1 at the position of the correct class index: $p_i = \begin{cases} 1 & i = y \\ 0 & i \neq y \end{cases}$
+Roughly speaking, cross entropy measures the similarity between two probability distributions, so in the context of machine learning, we use cross entropy as a loss function where:
+
+* $q$ is our predicted probabilities vector (i.e. the softmax of our network outputs): $q = \text{softmax}(\hat{y})$
+* $p$  is a one-hot encoded vector of our label, that is a probability vector that assigns 100% probability to the position $y$ (our label for the correct class): $p_i = \begin{cases} 1 & i = y \\ 0 & i \neq y \end{cases}$
 
 In this setup, our cross entropy simplifies to:
 $$
@@ -130,14 +130,10 @@ H(p, q)
 &= -p_y\cdot\log(q_y) -\sum_{i \neq y} p_i\log(q_i) \\
 &= -1\cdot\log(q_y) -\sum_{i \neq y} 0\cdot\log(q_i) \\
 &= -\log(q_y) - 0 \sum_{i \neq y} \log(q_i) \\
-&= -\log(q_y)
+&= -\log(q_y) \\
+&= -\log(\text{softmax}(\hat{y})_y)
 \end{align}
 $$
-Subbing in for $q_y$ we get:
-$$
-H(p, q) = -\log(\text{softmax}(\hat{y})_y)
-$$
-where $\hat{y} = f(x)$ is just the raw output vector of the network.
 
 In code:
 
@@ -145,12 +141,7 @@ In code:
 def cross_entropy(y_hat, y_true):
     # assume y_hat is a vector and y_true is an integer
     return -np.log(softmax(y_hat)[y_true])
-```
 
-Here it is in action:
-
-```python
-# dummy neural network outputs and label
 cross_entropy(
     y_hat=np.random.normal(size=(10)),
     y_true=3,
@@ -158,26 +149,17 @@ cross_entropy(
 # 2.580982279204241
 ```
 
-But if for some reason `y_hat` contains large numbers, we start getting `inf`:
-```python
-# dummy neural network outputs and label
-cross_entropy(
-    y_hat = np.random.normal(size=(10)) * 1000,
-    y_true = 3,
-)
-# inf
-```
+For large numbers in `y_hat`, we start seeing `inf`:
 
-Well that's no good. Furthermore, if there's a 0 after softmax at the index of the correct class, we get `inf` due to `log(0)`:
 ```python
 cross_entropy(
-    y_hat = np.array([-1000000, 1000000]),
+    y_hat = np.array([-1000, 1000]),
     y_true = 0,
 )
 # inf
 ```
 
-As such, a naive application of $\log(\text{softmax}(x))$ is numerically unstable. To make it more stable, we can employ some math tricks:
+In this case `softmax(y_hat) = [0, 1]`, with `y_true = 0`, we get `-log(0) = inf`. So to make `log(softmax(x))` stable, we need to prevent `log(0)`. Let's see if we can employ some math tricks to make this happen:
 $$
 \begin{align}
 \log(\text{softmax}(x)_i)
@@ -188,7 +170,7 @@ $$
 &= x_i - \min(x) - \log(\sum_j e^{x_j - \min(x)}) \\
 \end{align}
 $$
-Not only is this equation much more numerically stable, but it also has the nice property that the sum inside the log will always be $\geq 1$, meaning we don't have to worry about `log(0)` errors.
+This new equation guarentees that the sum inside the log will always be $\geq 1$, so we no longer need to worry about `log(0)` errors.
 
 In code:
 
@@ -200,20 +182,17 @@ def log_softmax(x):
 
 def cross_entropy(y_hat, y_true):
     return -log_softmax(y_hat)[y_true]
-```
 
-And it works! Even for large inputs!
-```python
 cross_entropy(
     y_hat=np.random.normal(size=(10)),
     y_true=3,
 )
 # 2.580982279204241
 
+# works for large inputs!!!!
 cross_entropy(
-    y_hat = np.random.normal(size=(10)) * 1000,
+    y_hat = np.array([-1000, 1000]),
     y_true = 3,
 )
 # 705.3963550098291
 ```
-
