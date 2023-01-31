@@ -1,7 +1,7 @@
 ---
 title: "GPT in 60 Lines of NumPy"
 date: 2023-01-12
-description: "Implementing a GPT model from scratch in `numpy`"
+description: "Implementing a GPT model from scratch in NumPy"
 ---
 In this post, we'll implement a GPT from scratch in just 60 lines of [`numpy`](https://github.com/numpy/numpy). We'll test our implementation by generating some using the trained GPT-2 model weights released by OpenAI.[^disclaimer]
 
