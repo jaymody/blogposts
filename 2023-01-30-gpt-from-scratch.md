@@ -1,9 +1,9 @@
 ---
 title: "GPT in 60 Lines of NumPy"
-date: 2023-01-12
+date: 2023-01-30
 description: "Implementing a GPT model from scratch in NumPy"
 ---
-In this post, we'll implement a GPT from scratch in just 60 lines of [`numpy`](https://github.com/numpy/numpy). We'll test our implementation by generating some using the trained GPT-2 model weights released by OpenAI.[^disclaimer]
+In this post, we'll implement a GPT from scratch in just 60 lines of [`numpy`](https://github.com/numpy/numpy). We'll then load the trained GPT-2 model weights released by OpenAI into our implementation and generate some text.[^disclaimer]
 
 This post assumes familiarity with Python, NumPy, and some basic experience training neural networks. Code for this blog post can be found at [github.com/jaymody/picoGPT](https://github.com/jaymody/picoGPT).
 
