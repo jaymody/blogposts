@@ -4,7 +4,7 @@ date: 2022-10-22
 description: "Deriving the equation for scaled dot product attention."
 ---
 
-The transformer neural network architecture is the secret sauce behind LLMs (large language models) like ChatGPT and the models that power [cohere.ai](https://cohere.ai). The main feature of the transformer is a mechanism called _attention_. While attention can come in many different forms, the attention mechanism used in the transformer architectures is defined as:
+The transformer neural network architecture is the secret sauce behind LLMs (large language models) like ChatGPT and the models that power [cohere.ai](https://cohere.ai). The main feature of the transformer is a mechanism called _attention_. While attention can come in many different forms, the attention mechanism used in the transformer architecture is defined as:
 $$\text{attention}(Q, K, V) = \text{softmax}(\frac{QK^T}{\sqrt{d_k}})V$$
 This version of attention (known as scaled dot product attention), was first proposed in the original [transformer paper]( https://arxiv.org/pdf/1706.03762.pdf), is still widely used by most transformer implementations. In this post, we'll build an intuition for the above equation by deriving it from the ground up.
 
@@ -75,7 +75,7 @@ You can even imagine doing arithmetic on word vectors. For example, given the wo
 $$\boldsymbol{v}_{\text{queen}} - \boldsymbol{v}_{\text{woman}} + \boldsymbol{v}_{\text{man}} \sim \boldsymbol{v}_{\text{king}}$$
 That is, the vector for "queen" minus "woman" plus "man" should result in a vector that is _similar_ to the vector for "king".
 
-Bu what does it exactly mean for two vectors to be _similar_? In fruits/vegetables example, similarity meant how far apart they were in vector space (aka their [euclidean distance](https://en.wikipedia.org/wiki/Euclidean_distance)).
+But what does it exactly mean for two vectors to be _similar_? In the fruits/vegetables example, similarity meant how far apart they were in vector space (aka their [euclidean distance](https://en.wikipedia.org/wiki/Euclidean_distance)).
 
 However there are many different ways to [measure the similarity between two vectors](https://towardsdatascience.com/9-distance-measures-in-data-science-918109d069fa), each with their own advantages and disadvantages. Possibly the simplest way measure of similarity is the dot product:
 $$\boldsymbol{v} \cdot \boldsymbol{w} = \sum_{i}v_i w_i$$
@@ -175,7 +175,7 @@ print(kv_lookup("tennis", ["racket", "ball", "tree"], [10, 5, 2]))
 ---
 In principle, the attention equation we derived in the last section is complete. However, we'll need to make a couple of changes to match the version in [Attention is All You Need](https://arxiv.org/pdf/1706.03762.pdf).
 
-##### Values as Vectors
+#### Values as Vectors
 The values associated with each key need not be a singular number, they can be vectors of any size $d_v$. For example with $d_v = 4$, you might have:
 
 ```python

@@ -3,13 +3,23 @@ title: "GPT in 60 Lines of NumPy"
 date: 2023-01-30
 description: "Implementing a GPT model from scratch in NumPy."
 ---
-In this post, we'll implement a GPT from scratch in just 60 lines of [`numpy`](https://github.com/numpy/numpy). We'll then load the trained GPT-2 model weights released by OpenAI into our implementation and generate some text.[^disclaimer]
+In this post, we'll implement a GPT from scratch in just [60 lines of `numpy`](https://github.com/jaymody/picoGPT/blob/29e78cc52b58ed2c1c483ffea2eb46ff6bdec785/gpt2_pico.py#L3-L58). We'll then load the trained GPT-2 model weights released by OpenAI into our implementation and generate some text.
 
-This post assumes familiarity with Python, NumPy, and some basic experience training neural networks. Code for this blog post can be found at [github.com/jaymody/picoGPT](https://github.com/jaymody/picoGPT).
+**Note:**
+* This post assumes familiarity with Python, NumPy, and some basic experience training neural networks.
+* My goal with this post is to provide a **simple and hackable yet complete technical introduction to the GPT as an educational tool**. As such, we ONLY implement the forward pass code, using already trained model weights.
+* Understanding the GPT architecture is an important part of understanding LLMs, but architecture is just a small piece of the puzzle. Distributed training at scale, collecting terabytes of high quality text data, making the model inference fast, evaluating performance, and aligning the models to human interests is the life's work of the 100s of engineer/researchers required to make LLMs what they are today, not just the architecture. [^architecture]
+* All the code for this blog post can be found at [github.com/jaymody/picoGPT](https://github.com/jaymody/picoGPT).
+* [Hacker news thread](https://news.ycombinator.com/item?id=34726115)
 
+**EDIT (Feb 9th, 2023):** Added a "What's Next" section and updated the intro with some notes.
+
+## Table of Contents
+---
 [[toc]]
 
 ## What is a GPT?
+---
 GPT stands for **Generative Pre-trained Transformer**. It's a type of neural network architecture based on the [**Transformer**](https://arxiv.org/pdf/1706.03762.pdf). [Jay Alammar's How GPT3 Works](https://jalammar.github.io/how-gpt3-works-visualizations-animations/) is an excellent introduction to GPTs at a high level, but here's the tl;dr:
 
 * **Generative**: A GPT _generates_ text.
@@ -18,13 +28,13 @@ GPT stands for **Generative Pre-trained Transformer**. It's a type of neural net
 
 Large Language Models (LLMs) like [OpenAI's GPT-3](https://en.wikipedia.org/wiki/GPT-3), [Google's LaMDA](https://blog.google/technology/ai/lamda/), and [Cohere Command XLarge](https://docs.cohere.ai/docs/command-beta) are just GPTs under the hood. What makes them special is they happen to be **1)** very big (billions of parameters) and **2)** trained on lots of data (hundreds of gigabytes of text).
 
-Fundamentally, a GPT generates text given a prompt. Even with this very simple API (input = text, output = text), a well trained GPT like [ChatGPT](https://openai.com/blog/chatgpt/) can do some pretty awesome stuff like [write your emails](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Demo-of-Drafting-an-Email.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1), [summarize a book](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Example-Book-Summarization.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1), [give you instagram caption ideas](https://khrisdigital.com/wp-content/uploads/2022/12/image-1.png), [explain black holes to you as if you are 5 years old](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Examples-Explaining-Black-Holes.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1), [code in SQL](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Demo-of-Writing-SQL-Queries.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1),  and [even write your will](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/Chat-GPT-Example-Writing-a-Will.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1).
+Fundamentally, a GPT generates text given a prompt. Even with this very simple API (input = text, output = text), a well trained GPT can do some pretty awesome stuff like [write your emails](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Demo-of-Drafting-an-Email.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1), [summarize a book](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Example-Book-Summarization.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1), [give you instagram caption ideas](https://khrisdigital.com/wp-content/uploads/2022/12/image-1.png), [explain black holes to you as if you are 5 years old](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Examples-Explaining-Black-Holes.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1), [code in SQL](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Demo-of-Writing-SQL-Queries.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1),  and [even write your will](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/Chat-GPT-Example-Writing-a-Will.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1).
 
 So that's a high-level overview of GPTs and their capabilities. Before we get into the fun architecture stuff, let's just quickly recap:
+
 * Input/Output
 * Generating Text
 * Training
-
 
 ### Input / Output
 The function signature for a GPT looks roughly like this:
@@ -149,7 +159,7 @@ Not only does it allow us to generate different sentences for the same input, bu
 It's also common to use techniques like [**top-k**](https://docs.cohere.ai/docs/controlling-generation-with-top-k-top-p#2-pick-from-amongst-the-top-tokens-top-k), [**top-p**](https://docs.cohere.ai/docs/controlling-generation-with-top-k-top-p#3-pick-from-amongst-the-top-tokens-whose-probabilities-add-up-to-15-top-p), and [**temperature**](https://docs.cohere.ai/docs/temperature) to modify the probability distribution before sampling from it. This helps improve the quality of generations and also introduces hyper-parameters that we can play around with to get different generation behaviors (for example, increasing temperature makes our model take more risks and thus be more "creative").
 
 ### Training
-We train a GPT like any other neural network, using gradient descent with respect to some loss function. In the case of a GPT, we take the [**cross entropy loss**](https://www.youtube.com/watch?v=ErfnhcEV1O8) over the language modeling task:
+We train a GPT like any other neural network, using [gradient descent](https://en.wikipedia.org/wiki/Gradient_descent) with respect to some loss function. In the case of a GPT, we take the [**cross entropy loss**](https://www.youtube.com/watch?v=ErfnhcEV1O8) over the language modeling task:
 
 ```python
 def lm_loss(inputs: list[int]) -> float:
@@ -193,6 +203,7 @@ This means we can scale up train data really easily, we just throw as much text 
 Of course, you need a sufficiently large model to be able to learn from all this data, which is why GPT-3 is **175 billion parameters** and probably cost between [$1m-10m in compute cost to train](https://twitter.com/eturner303/status/1266264358771757057).[^pretrain]
 
 ## Setup
+---
 Clone the repository for this tutorial:
 
 ```shell
@@ -270,14 +281,16 @@ if __name__ == "__main__":
 ```
 
 Breaking down each of the 4 sections:
-1. The `gpt2` function is the actual GPT code we'll be implementing. You'll notice that the function signature, in addition to `inputs`, includes some extra stuff. `wte`, `wpe`, `blocks`, and `ln_f` are parameters for our model, `n_head` is a hyper-parameter that is needed during the forward pass.
-2. The `generate` function is the auto-regressive decoding algorithm we saw earlier. We use greedy sampling instead of sampling from probabilities for simplicity and so we can get deterministic results. [`tqdm`](https://www.google.com/search?q=tqdm) is a progress bar, so we can visualize the progress of our model as it generates tokens one at a time.
-3. The `main` function handles:
+1. The `gpt2` function is the actual GPT code we'll be implementing. You'll notice that the function signature includes some extra stuff in addition to `inputs`.
+	- `wte`, `wpe`, `blocks`, and `ln_f` are parameters for our model.
+	- `n_head` is a hyper-parameter that is needed during the forward pass.
+1. The `generate` function is the auto-regressive decoding algorithm we saw earlier. We use greedy sampling for simplicity and so we can get deterministic results. [`tqdm`](https://www.google.com/search?q=tqdm) is a progress bar, so we can visualize the progress of our model as it generates tokens one at a time.
+2. The `main` function handles:
     1. Loading the tokenizer (`encoder`), model weights (`params`), and hyper-parameters (`hparams`)
     2. Encoding the input prompt into token ids using the tokenizer
     3. Calling the generate function
     4. Decoding the output ids into a string
-4. [`fire.Fire(main)`](https://github.com/google/python-fire) just turns the our file into a CLI application so we can eventually run our code with: `python gpt2.py "some prompt here"`
+3. [`fire.Fire(main)`](https://github.com/google/python-fire) just turns the our file into a CLI application so we can eventually run our code with: `python gpt2.py "some prompt here"`
 
 Let's take a closer look at `encoder`, `hparams`, and `params`, in a notebook, or an interactive python session, run:
 
@@ -437,13 +450,14 @@ For reference, here's what the `params` dictionary of shapes looks like, but wit
 }
 ```
 
-You'll probably want to come back to the above dictionary a lot as we're coding to check the shape of the weights. We'll be using variable names for our weights that match the keys of this dictionary.
+You'll probably want to come back to reference the above dictionary a lot as we're coding to check the shape of the weights. We'll be using variable names for our weights that match the keys of this dictionary.
 
 ## Basic Layers
-Last thing before we get into the actual GPT architecture, let's implement some of the more basic neural network layers that are non-specific to the GPT.
+---
+Last thing before we get into the actual GPT architecture itself, let's implement some of the more basic neural network layers that are non-specific to the GPT.
 
 ### GeLU
-[Gaussian Error Linear Units](https://arxiv.org/pdf/1606.08415.pdf) is an alternative to the ReLU activation function, and is approximated by the following function[^gelu]:
+[Gaussian Error Linear Units](https://arxiv.org/pdf/1606.08415.pdf) is an alternative to the ReLU activation function, and is approximated by the following function:
 
 ![gelu](https://miro.medium.com/max/491/1*kwHcbpKUNLda8tvCiwudqQ.png)
 
@@ -494,9 +508,7 @@ array([1., 1.])
 $$
 \text{LayerNorm}(x) = \gamma \cdot \frac{x - \mu}{\sqrt{\sigma^2}} + \beta
 $$
-where $\mu$ is the mean of $x$
-$\sigma^2$ is the variance of $x$
-and $\gamma$ and $\beta$ are learnable parameters
+where $\mu$ is the mean of $x$, $\sigma^2$ is the variance of $x$, and $\gamma$ and $\beta$ are learnable parameters.
 
 ```python
 def layer_norm(x, g, b, eps: float = 1e-5):
@@ -508,7 +520,7 @@ def layer_norm(x, g, b, eps: float = 1e-5):
 
 This ensures that the inputs for each layer are always within a consistent range, which is suppose to speed up and stabilize the training process. Like [Batch Normalization](https://arxiv.org/pdf/1502.03167.pdf), the normalized output is then scaled and offset with two learnable vectors gamma and beta. The small epsilon term in the denominator is used to avoid a division by zero error.
 
-Layer norm is used instead of batch norm for [various reasons](https://stats.stackexchange.com/questions/474440/why-do-transformers-use-layer-norm-instead-of-batch-norm). The differences between various normalization techniques is outlined [in this excellent blog post](https://tungmphung.com/deep-learning-normalization-methods/).
+Layer norm is used instead of batch norm in the transformer for [various reasons](https://stats.stackexchange.com/questions/474440/why-do-transformers-use-layer-norm-instead-of-batch-norm). The differences between various normalization techniques is outlined [in this excellent blog post](https://tungmphung.com/deep-learning-normalization-methods/).
 
 Layer normalization is applied over the last axis of the input. 
 
@@ -545,15 +557,16 @@ Linear layers are often referred to as projections (since they are projecting fr
 ```
 
 ## GPT Architecture
+---
 The GPT architecture follows that of the [transformer](https://arxiv.org/pdf/1706.03762.pdf):
 
-![transformer](https://machinelearningmastery.com/wp-content/uploads/2021/08/attention_research_1.png)
+![Figure 1 from Attention is All You Need](https://machinelearningmastery.com/wp-content/uploads/2021/08/attention_research_1.png)
 
 But uses only the decoder stack (the right part of the diagram):
 
-![gpt](https://i.imgur.com/c4Z6PG8.png)
+![GPT Architecture](https://i.imgur.com/c4Z6PG8.png)
 
-You'll notice though, the middle "cross-attention" layer is removed since we don't have an encoder anymore.
+You'll notice though, the middle "cross-attention" layer is removed since we got rid of the encoder.
 
 So at a high level, a GPT has 3 parts to it:
 
@@ -946,6 +959,7 @@ The code we wrote performs the attention computations over each head sequentiall
 With that, we're finally done our GPT implementation! Now, all that's left to do is put it all together and test our code.
 
 ## Putting it All Together
+---
 Putting everything together, we get [gpt2.py](https://github.com/jaymody/picoGPT/blob/main/gpt2.py), which in its entirety is a mere 120 lines of code ([60 lines if you remove comments and whitespace](https://github.com/jaymody/picoGPT/blob/main/gpt2_pico.py)).
 
 We can test our implementation with:
@@ -979,8 +993,79 @@ which should give an identical result:
 the most powerful machines on the planet.
 ```
 
+## What Next?
+---
+This implementation is missing a ton of bells and whistle's. For example:
 
-[^gelu]: The [BERT](https://arxiv.org/pdf/1810.04805.pdf) paper popularized the use of GeLU in transformer based models, and it kind of stuck around. There's a [great paper from Noam Shazeer](https://arxiv.org/pdf/2002.05202.pdf) that surveys the performance of various activation functions on the GPT architecture.
+### GPU/TPU Support
+Replace NumPy with [JAX](https://github.com/google/jax):
+
+```python
+import jax.numpy as np
+```
+
+That's it. You can now use the code with GPUs!
+
+### Backpropagation
+Again, if we replace NumPy with [JAX](https://github.com/google/jax)[^jax]:
+
+```python
+import jax.numpy as np
+```
+
+And then computing the gradients is as easy as:
+
+```python
+def lm_loss(params, inputs, n_head) -> float:
+    x, y = inputs[:-1], inputs[1:]
+    output = gpt2(x, **params, n_head=n_head)
+    loss = np.mean(-np.log(output[y]))
+    return loss
+
+grads = jax.grad(lm_loss)(params, inputs, n_head)
+```
+
+### Batching
+Once again, if we replace NumPy with [JAX](https://github.com/google/jax):
+
+```python
+import jax.numpy as np
+```
+
+And then making out `gpt2` function batched is as easy as:
+
+```python
+gpt2_batched = jax.vmap(gpt2, in_axes=[0, None, None, None, None, None])
+gpt2_batched(batched_inputs) # [batch, seq_len] -> [batch, seq_len, vocab]
+```
+
+### Inference Optimization
+Our code is quite inefficient. Two quick things you can do to make it more efficient:
+
+* Perform the attention computations in parallel instead of sequentially. If you're using [JAX](https://github.com/google/jax), this is as simple as `heads = jax.vmap(attention, in_axes=(0, 0, 0, None))(q, k, v, casual_mask)`.
+* Implement a [KV Cache](https://kipp.ly/blog/transformer-inference-arithmetic/#kv-cache).
+
+There's many many more inference optimizations. I recommend [Lillian Weng's Large Transformer Model Inference Optimization](https://lilianweng.github.io/posts/2023-01-10-inference-optimization/) and [Kipply's Transformer Inference Arithmetic](https://kipp.ly/blog/transformer-inference-arithmetic/).
+
+### Training
+Ignoring scale, the training of a GPT is pretty standard. Just doing gradient descent with respect to language modeling loss. Of course there are gonna be a bunch of tricks (using the Adam optimizer, finding the optimal learning rate, regularization via dropout or weight decay, learning rate schedulers, sequence padding logic, weight initialization, etc ...), but it's all fairly standard stuff.
+
+The real secret sauce is the ability to **scale the data and the model**.
+
+For scaling data, you'll want a corpus of text that is big, high quality, and diverse.
+
+* Big means billions of tokens (terabytes of data). For example, check out [The Pile](https://pile.eleuther.ai), which is an open source pretraining dataset for large language models.
+* High quality means you want to filter out repeated examples, unformatted text, incoherent text, etc ...
+* Diverse means varying sequence lengths, about lots of different topics, from different sources, with differing perspectives, etc ... Of course if there are any biases in the data, it will reflect in the model, so you need to be careful of that as well.
+
+Scaling the model to billions of parameters involves a cr\*p ton of engineering. Training frameworks can get [1000s of lines of code long](https://github.com/NVIDIA/Megatron-LM) and are very complex. A good place to start would be [Lillian Weng's How to Train Really Large Models on Many GPUs](https://lilianweng.github.io/posts/2021-09-25-train-large/). On the topic there's also the [NVIDIA's Megatron Framework](https://arxiv.org/pdf/1909.08053.pdf), [Cohere's Training Framework](https://arxiv.org/pdf/2204.06514.pdf), [Google's PALM](https://arxiv.org/pdf/2204.02311.pdf), the open source [mesh-transformer-jax](https://github.com/kingoflolz/mesh-transformer-jax) (used to train EleutherAI's open source models), and [many](https://arxiv.org/pdf/2203.15556.pdf) [many](https://www.microsoft.com/en-us/research/blog/turing-nlg-a-17-billion-parameter-language-model-by-microsoft/) [more](https://arxiv.org/pdf/2005.14165.pdf).
+
+### Evaluation
+Oh boy, how does one even evaluate a large LLM? Honestly, it's hard. [HELM](https://arxiv.org/abs/2211.09110) is probably a good place to start maybe? I really don't know, evaluation is hard.
+
+### Architecture Improvements
+I recommend taking a look at [Phil Wang's X-Transformer's](https://github.com/lucidrains/x-transformers). It has the latest and greatest research on transformer architecture research. [This paper](https://arxiv.org/pdf/2102.11972.pdf) is also a pretty good summary.
+
 
 [^positional]: The original transformer paper used a [calculated positional embedding](https://nlp.seas.harvard.edu/2018/04/03/attention.html#positional-encoding) which they found performed just as well as learned positional embeddings, but has the distinct advantage that you can input any arbitrarily long sequence (you are not restricted by a maximum sequence length). However, in practice, your model is only going to be as the good sequence lengths that it was trained on. You can't just train a GPT on sequences that are 1024 long and then expect it to perform well at 16k tokens long. Recently, there has also been some success with relative positional embeddings, such as [Alibi](https://arxiv.org/pdf/2108.12409.pdf) and [RoPE](https://arxiv.org/pdf/2104.09864v4.pdf).
 
@@ -988,11 +1073,14 @@ the most powerful machines on the planet.
 
 [^pretrain]: The unsupervised language modeling training of a GPT is also often called "pre-training". This is because you can use the "pre-trained" weights as a starting point when fine-tuning on a downstream task/dataset, greatly increasing the performance versus if you tried to train from scratch or use zero-shot/few-shot prompting on just the pre-trained model. However, using just the pre-trained model by itself to generate text is what your seeing when you talk to ChatGPT.
 
-[^attention]: Actually, I might argue that there is something inherently better about the way attention models sequences vs recurrent/convolutional layers, but I digress.
-
-[^disclaimer]: There's obviously a lot more work that goes into creating something like ChatGPT than just the architecture and 60 lines of NumPy. Training a model at scale, collecting terabytes of high quality text data, making the model code fast enough for practical use, and aligning the models to human interests is the life's work of the 100s of engineer/researchers. The GPT architecture just happened to be the first neural network architecture that has nice scaling properties, is highly parallelizable on GPUs, and is good at modeling sequences. The real secret sauce is the data and scale, GPT is just a vector for that[^attention]. However, understanding GPTs at an architectural level is still highly relevant, and my goal with this post is to provide a simple yet complete technical introduction to the GPT.
 
 [^softmax]: If you're not convinced, stare at the softmax equation and convince yourself this is true (maybe even pull out a pen and paper):
 $$
 \text{softmax}(\vec{x})_i=\frac{e^{x_i}}{\sum_je^{x_j}}
 $$
+
+[^architecture]: The GPT architecture just happened to be the first neural network architecture that has nice scaling properties, is highly parallelizable on GPUs, and is good at modeling sequences. The real secret sauce is the data and scale ([as always](http://www.incompleteideas.net/IncIdeas/BitterLesson.html)), GPT is just a vector for that[^attention]. It's possible that the transformer has hit [the hardware lottery](https://www.google.com/search?q=the%20compute%20lottery%20sara%20hoooker).
+
+[^attention]: Actually, I might argue that there is something inherently better about the way attention models sequences vs recurrent/convolutional layers, but now we in a footnote inside a footnote, so I digress.
+
+[^jax]: I love JAX ❤️.
