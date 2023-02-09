@@ -16,7 +16,7 @@ GPT stands for **Generative Pre-trained Transformer**. It's a type of neural net
 * **Pre-trained**: A GPT is _trained_ on lots of text from books, the internet, etc ...
 * **Transformer**: A GPT is a decoder-only _transformer_ neural network.
 
-Large Language Models (LLMs) like [OpenAI's GPT-3](https://en.wikipedia.org/wiki/GPT-3) and [Google's LaMDA](https://blog.google/technology/ai/lamda/) are just GPTs under the hood. What makes them special is they happen to be **1)** very big (billions of parameters) and **2)** trained on lots of data (hundreds of gigabytes of text).
+Large Language Models (LLMs) like [OpenAI's GPT-3](https://en.wikipedia.org/wiki/GPT-3), [Google's LaMDA](https://blog.google/technology/ai/lamda/), and [Cohere Command XLarge](https://docs.cohere.ai/docs/command-beta) are just GPTs under the hood. What makes them special is they happen to be **1)** very big (billions of parameters) and **2)** trained on lots of data (hundreds of gigabytes of text).
 
 Fundamentally, a GPT generates text given a prompt. Even with this very simple API (input = text, output = text), a well trained GPT like [ChatGPT](https://openai.com/blog/chatgpt/) can do some pretty awesome stuff like [write your emails](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Demo-of-Drafting-an-Email.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1), [summarize a book](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Example-Book-Summarization.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1), [give you instagram caption ideas](https://khrisdigital.com/wp-content/uploads/2022/12/image-1.png), [explain black holes to you as if you are 5 years old](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Examples-Explaining-Black-Holes.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1), [code in SQL](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Demo-of-Writing-SQL-Queries.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1),  and [even write your will](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/Chat-GPT-Example-Writing-a-Will.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1).
 
@@ -412,7 +412,7 @@ model/wte: (50257, 768)
 
 There's just some [additional logic](https://github.com/jaymody/picoGPT/blob/29e78cc52b58ed2c1c483ffea2eb46ff6bdec785/utils.py#L43-L65) needed to convert the above into the nested dictionary structure `params`.
 
-For reference, let's here's what the `params` dictionary of shapes looks like, but with the numbers replaced with the hyper-parameters they represent:
+For reference, here's what the `params` dictionary of shapes looks like, but with the numbers replaced with the hyper-parameters they represent:
 
 ```python
 {
