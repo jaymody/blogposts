@@ -668,12 +668,12 @@ So that's the GPT architecture at a high level, let's actually dig a bit deeper 
 ### Decoder Block
 The transformer decoder block consists of two sublayers:
 
-1. Multi-head casual self attention
+1. Multi-head causal self attention
 2. Position-wise feed forward neural network
 
 ```python
 def transformer_block(x, mlp, attn, ln_1, ln_2, n_head):  # [n_seq, n_embd] -> [n_seq, n_embd]
-    # multi-head casual self attention
+    # multi-head causal self attention
     x = x + mha(layer_norm(x, **ln_1), **attn, n_head=n_head)  # [n_seq, n_embd] -> [n_seq, n_embd]
 
     # position-wise feed forward network
@@ -686,7 +686,7 @@ Each sublayer utilizes layer normalization on their inputs as well as a residual
 
 Some things to note:
 
-1. **Multi-head casual self attention** is what facilitates the communication between the inputs. Nowhere else in the network does the model allow inputs to "see" each other. The embeddings, position-wise feed forward network, layer norms, and projection to vocab all operate on our inputs position-wise. Modeling relationships between inputs is tasked solely to attention.
+1. **Multi-head causal self attention** is what facilitates the communication between the inputs. Nowhere else in the network does the model allow inputs to "see" each other. The embeddings, position-wise feed forward network, layer norms, and projection to vocab all operate on our inputs position-wise. Modeling relationships between inputs is tasked solely to attention.
 2. The **Position-wise feed forward neural network** is just a regular 2 layer fully connected neural network. This just adds a bunch of learnable parameters for our model to work with to facilitate learning.
 3. In the original transformer paper, layer norm is placed on the output `layer_norm(x + sublayer(x))` while we place layer norm on the input `x + sublayer(layer_norm(x))` to match GPT-2. This is referred to as **pre-norm** and has been shown to be [important in improving the performance of the transformer](https://arxiv.org/pdf/2002.04745.pdf).
 4. **Residual connections** (popularized by [ResNet](https://arxiv.org/pdf/1512.03385.pdf)) serve a couple of different purposes:
@@ -721,12 +721,12 @@ Recall, from our `params` dictionary, that our `mlp` params look like this:
 }
 ```
 
-### Multi-Head Casual Self Attention
-This layer is probably the most difficult part of the transformer to understand. So let's work our way up to "Multi-Head Casual Self Attention" by breaking each word down into it's own section:
+### Multi-Head Causal Self Attention
+This layer is probably the most difficult part of the transformer to understand. So let's work our way up to "Multi-Head Causal Self Attention" by breaking each word down into it's own section:
 
 1) Attention
 2) Self
-3) Casual
+3) Causal
 4) Multi-Head
 
 #### Attention
@@ -819,7 +819,7 @@ Recall, from our `params` dictionary, our `attn` params look like this:
 },
 ```
 
-#### Casual
+#### Causal
 There is a bit of an issue with our current self-attention setup, our inputs can see into the future! For example, if our input is `["not", "all", "heroes", "wear", "capes"]`, during self attention we are allowing "wear" to see "capes". This means our output probabilities for "wear" will biased since the model already knows the correct answer is "capes". This is no good since our model will just learn that the correct answer for input $i$ can be taken from input $i+1$.
 
 To prevent this, we need to somehow modify our attention matrix `softmax(q @ k.T / np.sqrt(k.shape[-1]))` to _hide_ or **mask**  our inputs from being able to see into the future. For example, let's pretend our attention matrix looks like this:
@@ -886,18 +886,18 @@ Putting it all together, we get:
 def attention(q, k, v, mask):  # [n_q, d_k], [n_k, d_k], [n_k, d_v], [n_q, n_k] -> [n_q, d_v]
     return softmax(q @ k.T / np.sqrt(q.shape[-1]) + mask) @ v
 
-def casual_self_attention(x, c_attn, c_proj): # [n_seq, n_embd] -> [n_seq, n_embd]
+def causal_self_attention(x, c_attn, c_proj): # [n_seq, n_embd] -> [n_seq, n_embd]
     # qkv projections
     x = linear(x, **c_attn) # [n_seq, n_embd] -> [n_seq, 3*n_embd]
 
     # split into qkv
     q, k, v = qkv = np.split(x, 3, axis=-1) # [n_seq, 3*n_embd] -> 3 of [n_seq, n_embd]
 
-    # casual mask to hide future inputs from being attended to
-    casual_mask = (1 - np.tri(x.shape[0])) * -1e10  # [n_seq, n_seq]
+    # causal mask to hide future inputs from being attended to
+    causal_mask = (1 - np.tri(x.shape[0])) * -1e10  # [n_seq, n_seq]
 
-    # perform casual self attention
-    x = attention(q, k, v, casual_mask) # [n_seq, n_embd] -> [n_seq, n_embd]
+    # perform causal self attention
+    x = attention(q, k, v, causal_mask) # [n_seq, n_embd] -> [n_seq, n_embd]
 
     # out projection
     x = linear(x, **c_proj) # [n_seq, n_embd] @ [n_embd, n_embd] = [n_seq, n_embd]
@@ -919,11 +919,11 @@ def mha(x, c_attn, c_proj, n_head):  # [n_seq, n_embd] -> [n_seq, n_embd]
     # split into heads
     qkv_heads = list(map(lambda x: np.split(x, n_head, axis=-1), qkv))  # [3, n_seq, n_embd] -> [n_head, 3, n_seq, n_embd/n_head]
 
-    # casual mask to hide future inputs from being attended to
-    casual_mask = (1 - np.tri(x.shape[0])) * -1e10  # [n_seq, n_seq]
+    # causal mask to hide future inputs from being attended to
+    causal_mask = (1 - np.tri(x.shape[0])) * -1e10  # [n_seq, n_seq]
 
     # perform attention over each head
-    out_heads = [attention(q, k, v, casual_mask) for q, k, v in zip(*qkv_heads)]  # [n_head, 3, n_seq, n_embd/n_head] -> [n_head, n_seq, n_embd/n_head]
+    out_heads = [attention(q, k, v, causal_mask) for q, k, v in zip(*qkv_heads)]  # [n_head, 3, n_seq, n_embd/n_head] -> [n_head, n_seq, n_embd/n_head]
 
     # merge heads
     x = np.hstack(out_heads)  # [n_head, n_seq, n_embd/n_head] -> [n_seq, n_embd]
@@ -1042,7 +1042,7 @@ gpt2_batched(batched_inputs) # [batch, seq_len] -> [batch, seq_len, vocab]
 ### Inference Optimization
 Our code is quite inefficient. Two quick things you can do to make it more efficient:
 
-* Perform the attention computations in parallel instead of sequentially. If you're using [JAX](https://github.com/google/jax), this is as simple as `heads = jax.vmap(attention, in_axes=(0, 0, 0, None))(q, k, v, casual_mask)`.
+* Perform the attention computations in parallel instead of sequentially. If you're using [JAX](https://github.com/google/jax), this is as simple as `heads = jax.vmap(attention, in_axes=(0, 0, 0, None))(q, k, v, causal_mask)`.
 * Implement a [KV Cache](https://kipp.ly/blog/transformer-inference-arithmetic/#kv-cache).
 
 There's many many more inference optimizations. I recommend [Lillian Weng's Large Transformer Model Inference Optimization](https://lilianweng.github.io/posts/2023-01-10-inference-optimization/) and [Kipply's Transformer Inference Arithmetic](https://kipp.ly/blog/transformer-inference-arithmetic/).
