@@ -5,8 +5,7 @@ description: "Deriving the equation for scaled dot product attention."
 ---
 
 The transformer neural network architecture is the secret sauce behind LLMs (large language models) like ChatGPT and the models that power [cohere.ai](https://cohere.ai). The main feature of the transformer is a mechanism called _attention_. While attention can come in many different forms, the attention mechanism used in the transformer architecture is defined as:
-$$\text{attention}(Q, K, V) = \text{softmax}(\frac{QK^T}{\sqrt{d_k}})V$$
-This version of attention (known as scaled dot product attention), was first proposed in the original [transformer paper]( https://arxiv.org/pdf/1706.03762.pdf), is still widely used by most transformer implementations. In this post, we'll build an intuition for the above equation by deriving it from the ground up.
+$$\text{attention}(Q, K, V) = \text{softmax}(\frac{QK^T}{\sqrt{d_k}})V$$This version of attention (known as scaled dot product attention), was first proposed in the original [transformer paper]( https://arxiv.org/pdf/1706.03762.pdf), is still widely used by most transformer implementations. In this post, we'll build an intuition for the above equation by deriving it from the ground up.
 
 To start, let's take a look at the problem attention aims to solve, the key-value lookup.
 
@@ -56,8 +55,7 @@ So, let's not choose. Instead we'll do exactly that, take a combination of racke
 Essentially, we are determining how much **attention** our query should be paying to each key-value pair based on _meaning_. The amount of "attention" is represented as a decimal percentage, called an **attention score**, which we use to take the weighted sum. Mathematically, we can define our output as:
 $$
 \sum_{i} \alpha_iv_i
-$$
-where $\alpha_i$ is our attention score for the $i$th kv pair and $v_i$ is the $i$th value. Remember, the attention scores are decimal percentages, that is they must be between 0 and 1 inclusive ($0 \leq \alpha_i \leq 1$) and their sum must be 1 ($\sum_i a_i = 1$).
+$$where $\alpha_i$ is our attention score for the $i$th kv pair and $v_i$ is the $i$th value. Remember, the attention scores are decimal percentages, that is they must be between 0 and 1 inclusive ($0 \leq \alpha_i \leq 1$) and their sum must be 1 ($\sum_i a_i = 1$).
 
 Okay, but where did we get these attention scores from? In our example, I just kind of chose them based on what I _felt_. While I think I did a pretty good job, this approach doesn't seem sustainable (unless you can find a way to make a copy of me inside your computer).
 
@@ -72,14 +70,12 @@ Image we represent a word with a vector of numbers. Ideally, this vector should 
 You can see that words that are "similar" are clustered together. Fruits are clustered at the top right, vegetables are clustered at the top left, and furniture is clustered at the bottom. In fact, you can even see that the vegetables and fruit clusters are closer to each other than they are to the furniture cluster, since they are more closely related things.
 
 You can even imagine doing arithmetic on word vectors. For example, given the words "king", "queen", "man", and "woman" and their respective vector representations $\boldsymbol{v}_{\text{king}}, \boldsymbol{v}_{\text{queen}}, \boldsymbol{v}_{\text{man}}, \boldsymbol{v}_{\text{women}}$, we can imagine that:
-$$\boldsymbol{v}_{\text{queen}} - \boldsymbol{v}_{\text{woman}} + \boldsymbol{v}_{\text{man}} \sim \boldsymbol{v}_{\text{king}}$$
-That is, the vector for "queen" minus "woman" plus "man" should result in a vector that is _similar_ to the vector for "king".
+$$\boldsymbol{v}_{\text{queen}} - \boldsymbol{v}_{\text{woman}} + \boldsymbol{v}_{\text{man}} \sim \boldsymbol{v}_{\text{king}}$$That is, the vector for "queen" minus "woman" plus "man" should result in a vector that is _similar_ to the vector for "king".
 
 But what does it exactly mean for two vectors to be _similar_? In the fruits/vegetables example, similarity meant how far apart they were in vector space (aka their [euclidean distance](https://en.wikipedia.org/wiki/Euclidean_distance)).
 
 However there are many different ways to [measure the similarity between two vectors](https://towardsdatascience.com/9-distance-measures-in-data-science-918109d069fa), each with their own advantages and disadvantages. Possibly the simplest way measure of similarity is the dot product:
-$$\boldsymbol{v} \cdot \boldsymbol{w} = \sum_{i}v_i w_i$$
-[3blue1brown has a great video on the intuition behind dot product](https://www.youtube.com/watch?v=LyGKycYT2v0), but for our purposes all we need to know is:
+$$\boldsymbol{v} \cdot \boldsymbol{w} = \sum_{i}v_i w_i$$[3blue1brown has a great video on the intuition behind dot product](https://www.youtube.com/watch?v=LyGKycYT2v0), but for our purposes all we need to know is:
 * If two vectors are pointing in the same direction, the dot product will be > 0 (i.e. similar)
 * If they are pointing in opposing directions, the dot product will be < 0 (i.e. disimilar)
 * If they are exactly perpendicular, the dot product will be 0 (i.e. neutral)
@@ -93,19 +89,16 @@ Okay cool, but where do these word vectors actually come from? In the context of
 If we treat our query and keys as word vectors instead of strings ($\boldsymbol{q} = \boldsymbol{v}_{\text{tennis}}$ and $\boldsymbol{k} = [\boldsymbol{v}_{\text{racket}} \ \boldsymbol{v}_{\text{ball}} \ \boldsymbol{v}_{\text{tree}}]$, all with dimensionality $d_k$), we can compute the similarity between our query and the $i$th key as a dot product:
 $$
 x_i = \boldsymbol{q} \cdot \boldsymbol{k}_i
-$$
-We can compute the dot product for all $n_k$ keys with:
+$$We can compute the dot product for all $n_k$ keys with:
 
 $$
 \boldsymbol{x} = \boldsymbol{q}{K}^T
-$$
-where $\boldsymbol{x}$ is our vector of dot products $\boldsymbol{x} = [x_1, x_2, \ldots, x_{n_k - 1}, x_{n_k}]$ and $K$ is a row-wise matrix of our key vectors (i.e. our key vectors stacked on-top of each-other to form a $n_k$ by $d_k$ matrix such that $k_i$ is the $i$th row of $K$). If you're having trouble understanding this, see [^matmul].
+$$where $\boldsymbol{x}$ is our vector of dot products $\boldsymbol{x} = [x_1, x_2, \ldots, x_{n_k - 1}, x_{n_k}]$ and $K$ is a row-wise matrix of our key vectors (i.e. our key vectors stacked on-top of each-other to form a $n_k$ by $d_k$ matrix such that $k_i$ is the $i$th row of $K$). If you're having trouble understanding this, see [^matmul].
 
 Recall that our attention scores need to be decimal percentages (between 0 and 1 and sum to 1). Our dot product values on the other hand, can be any real number (i.e. between $-\infty$ and $\infty$). To transform our dot product values to decimal percentages, we'll use the [softmax function](https://en.wikipedia.org/wiki/Softmax_function):
 $$
 \text{softmax}(\boldsymbol{x})_i = \frac{e^{x_i}}{\sum_j e^{x_j}}
 $$
-
 ```python
 >>> import numpy as np
 >>> def softmax(x):
@@ -124,8 +117,7 @@ Notice:
 These are all the properties we needed for our attention scores, giving us the definition:
 $$
 \alpha_i = \text{softmax}(\boldsymbol{x})_i = \text{softmax}(\boldsymbol{q}K^T)_i
-$$
-Plugging this into our weighted sum we get [^values]:
+$$Plugging this into our weighted sum we get [^values]:
 $$
 \begin{align}
 \sum_{i}\alpha_iv_i
@@ -133,12 +125,10 @@ $$
 = & \sum_i \text{softmax}(\boldsymbol{q}K^T)_iv_i\\
 = &\ \text{softmax}(\boldsymbol{q}K^T)\boldsymbol{v}
 \end{align}
-$$
-And that's it, we have a full working definition for attention:
+$$And that's it, we have a full working definition for attention:
 $$
 \text{attention}(\boldsymbol{q}, K, \boldsymbol{v}) = \text{softmax}(\boldsymbol{q}K^T)\boldsymbol{v}
-$$
-In code:
+$$In code:
 
 ```python
 import numpy as np
@@ -191,8 +181,7 @@ In this case, the attention score gets multiplied to each number in the vector (
 To adjust for this change in our equation, instead of multiply our attention scores by a vector $v$ we multiply it by the row-wise matrix of our value vectors $V$ (similar to how we stacked our keys to form $K$):
 $$
 \text{attention}(\boldsymbol{q}, K, V) = \text{softmax}(\boldsymbol{q}K^T)V
-$$
-Of course, our output is no longer a scalar, instead it would be a vector of dimensionality $d_v$.
+$$Of course, our output is no longer a scalar, instead it would be a vector of dimensionality $d_v$.
 
 #### Scaling
 The dot product between our query and keys can get really large in magnitude if $d_k$ is large. This makes the output of softmax more _extreme_. For example, `softmax([3, 2, 1]) = [0.665, 0.244, 0.090]`, but with larger values (say we multiply our inputs by 10) `softmax([30, 20, 10]) = [9.99954600e-01, 4.53978686e-05, 2.06106005e-09]`. When training a neural network, this would mean the gradients would become really small which is undesirable. As a solution, we scale our pre-softmax scores by $\frac{1}{\sqrt(d_k)}$:
@@ -200,13 +189,11 @@ The dot product between our query and keys can get really large in magnitude if 
 $$
 \text{attention}(\boldsymbol{q}, K, V) = \text{softmax}(\frac{\boldsymbol{q}K^T}{\sqrt{d_k}})V
 $$
-
 #### Multiple Queries
 In practice, we often want to perform multiple lookups for $n_q$ different queries rather than just a single query. Of course, we could always do this one at a time, plugging each query into the above equation. However, if we stack of query vectors row-wise as a matrix $Q$ (in the same way we did for $K$ and $V$), we can compute our output as a $n_q$ by $d_v$ matrix where row $i$ is the output vector for the attention on the $i$th query:
 $$
 \text{attention}(Q, K, V) = \text{softmax}(\frac{QK^T}{\sqrt{d_k}})V
-$$
-that is, $\text{attention}(Q, K, V)_i = \text{attention}(q_i, K, V)$. On a CPU/GPU, this makes computation faster than if we ran attention for each query sequentially (say, in a for loop).
+$$that is, $\text{attention}(Q, K, V)_i = \text{attention}(q_i, K, V)$. On a CPU/GPU, this makes computation faster than if we ran attention for each query sequentially (say, in a for loop).
 
 Note, our input to softmax becomes a matrix instead of a vector. When we write softmax here, we mean that we are taking the softmax along each row independently, as if we were doing things sequentially.
 

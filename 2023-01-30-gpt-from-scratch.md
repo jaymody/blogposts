@@ -504,7 +504,6 @@ Good ole [softmax](https://en.wikipedia.org/wiki/Softmax_function):
 $$
 \text{softmax}(x)_i = \frac{e^{x_i}}{\sum_j e^{x_j}}
 $$
-
 ```python
 def softmax(x):
     exp_x = np.exp(x - np.max(x, axis=-1, keepdims=True))
@@ -529,8 +528,7 @@ array([1., 1.])
 
 $$
 \text{LayerNorm}(x) = \gamma \cdot \frac{x - \mu}{\sqrt{\sigma^2}} + \beta
-$$
-where $\mu$ is the mean of $x$, $\sigma^2$ is the variance of $x$, and $\gamma$ and $\beta$ are learnable parameters.
+$$where $\mu$ is the mean of $x$, $\sigma^2$ is the variance of $x$, and $\gamma$ and $\beta$ are learnable parameters.
 
 ```python
 def layer_norm(x, g, b, eps: float = 1e-5):
@@ -753,8 +751,7 @@ This layer is probably the most difficult part of the transformer to understand.
 
 #### Attention
 I have another [blog post](https://jaykmody.com/blog/attention-intuition/) on this topic, where we derive the scaled dot product equation proposed in the [original transformer paper](https://arxiv.org/pdf/1706.03762.pdf) from the ground up:
-$$\text{attention}(Q, K, V) = \text{softmax}(\frac{QK^T}{\sqrt{d_k}})V$$
-As such, I'm going to skip an explanation for attention in this post. You can also reference [Lilian Weng's Attention? Attention!](https://lilianweng.github.io/posts/2018-06-24-attention/) and [Jay Alammar's The Illustrated Transformer](https://jalammar.github.io/visualizing-neural-machine-translation-mechanics-of-seq2seq-models-with-attention/) which are also great explanations for attention. 
+$$\text{attention}(Q, K, V) = \text{softmax}(\frac{QK^T}{\sqrt{d_k}})V$$As such, I'm going to skip an explanation for attention in this post. You can also reference [Lilian Weng's Attention? Attention!](https://lilianweng.github.io/posts/2018-06-24-attention/) and [Jay Alammar's The Illustrated Transformer](https://jalammar.github.io/visualizing-neural-machine-translation-mechanics-of-seq2seq-models-with-attention/) which are also great explanations for attention. 
 
 We'll just adapt our attention implementation from my blog post:
 
@@ -791,7 +788,7 @@ def self_attention(x, w_k, w_q, w_v, w_proj): # [n_seq, n_embd] -> [n_seq, n_emb
     return x
 ```
 
-This enables our model to learn a mapping for `q`, `k`, and `v` that best helps attention model relationships between inputs. It also adds yet more parameters to our model to facilitate learning.
+This enables our model to learn a mapping for `q`, `k`, and `v` that best helps attention distinguish relationships between inputs.
 
 We can reduce the number of matrix multiplication from 4 to just 2 if we combine `w_q`, `w_k` and `w_v` into a single matrix `w_fc`, perform the projection, and then split the result:
 
@@ -857,7 +854,7 @@ heroes 0.156  0.453  0.028  0.129  0.234
 
 Each row corresponds to a query and the columns to a key. In this case, looking at the row for "wear", you can see that it is attending to "capes" in the last column with a weight of 0.295. To prevent this, we want to set that entry to `0.0`:
 
-```text
+```
       not    all    heroes wear   capes
    not 0.116  0.159  0.055  0.226  0.443
    all 0.180  0.397  0.142  0.106  0.175
@@ -939,13 +936,13 @@ def mha(x, c_attn, c_proj, n_head):  # [n_seq, n_embd] -> [n_seq, n_embd]
     qkv = np.split(x, 3, axis=-1)  # [n_seq, 3*n_embd] -> [3, n_seq, n_embd]
 
     # split into heads
-    qkv_heads = list(map(lambda x: np.split(x, n_head, axis=-1), qkv))  # [3, n_seq, n_embd] -> [n_head, 3, n_seq, n_embd/n_head]
+    qkv_heads = list(map(lambda x: np.split(x, n_head, axis=-1), qkv))  # [3, n_seq, n_embd] -> [3, n_head, n_seq, n_embd/n_head]
 
     # causal mask to hide future inputs from being attended to
     causal_mask = (1 - np.tri(x.shape[0])) * -1e10  # [n_seq, n_seq]
 
     # perform attention over each head
-    out_heads = [attention(q, k, v, causal_mask) for q, k, v in zip(*qkv_heads)]  # [n_head, 3, n_seq, n_embd/n_head] -> [n_head, n_seq, n_embd/n_head]
+    out_heads = [attention(q, k, v, causal_mask) for q, k, v in zip(*qkv_heads)]  # [3, n_head, n_seq, n_embd/n_head] -> [n_head, n_seq, n_embd/n_head]
 
     # merge heads
     x = np.hstack(out_heads)  # [n_head, n_seq, n_embd/n_head] -> [n_seq, n_embd]
@@ -1062,7 +1059,7 @@ gpt2_batched(batched_inputs) # [batch, seq_len] -> [batch, seq_len, vocab]
 ```
 
 ### Inference Optimization
-Our implementation is quite inefficient. The most important optimization you can make (outside of GPU support + batching) is implementing a [kv cache](https://kipp.ly/blog/transformer-inference-arithmetic/#kv-cache), which you can probably do by just changing a few lines of code. Also, we perform the our attention head computations sequentially, when we should really be doing them in parallel[^heads].
+Our implementation is quite inefficient. The quickest and most impactful optimization you can make (outside of GPU + batching) is implementing a [kv cache](https://kipp.ly/blog/transformer-inference-arithmetic/#kv-cache), which you can probably do by just changing a few lines of code. Also, we implemented our attention head computations sequentially, when we should really be doing it parallel[^heads].
 
 There's many many more inference optimizations. I recommend [Lillian Weng's Large Transformer Model Inference Optimization](https://lilianweng.github.io/posts/2023-01-10-inference-optimization/) and [Kipply's Transformer Inference Arithmetic](https://kipp.ly/blog/transformer-inference-arithmetic/) as a starting point.
 
