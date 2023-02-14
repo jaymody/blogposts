@@ -123,7 +123,7 @@ Generating a single word is cool and all, but what about entire sentences, parag
 
 ### Generating Text
 #### Autoregressive
-We can generate full sentences by iteratively asking our model the predict the next token. At each iteration, we append the predicted token back into the input:
+We can generate full sentences by iteratively getting the next token prediction from our model. At each iteration, we append the predicted token back into the input:
 
 ```python
 def generate(inputs, n_tokens_to_generate):
@@ -153,11 +153,9 @@ np.random.choice(np.arange(vocab_size), p=output[-1]) # capes
 np.random.choice(np.arange(vocab_size), p=output[-1]) # pants
 ```
 
-Not only does it allow us to generate different sentences for the same input, but it also increases the quality of the outputs compared to greedy decoding.
+This allows us to generate different sentences given the same input. When combined with techniques like [**top-k**](https://docs.cohere.ai/docs/controlling-generation-with-top-k-top-p#2-pick-from-amongst-the-top-tokens-top-k), [**top-p**](https://docs.cohere.ai/docs/controlling-generation-with-top-k-top-p#3-pick-from-amongst-the-top-tokens-whose-probabilities-add-up-to-15-top-p), and [**temperature**](https://docs.cohere.ai/docs/temperature) which modify the distribution prior to sampling, the quality of our outputs is greatly increased.  These techniques also introduce some hyperparameters that we can play around with to get different generation behaviors (for example, increasing temperature makes our model take more risks and thus be more "creative"). 
 
-It's also common to use techniques like [**top-k**](https://docs.cohere.ai/docs/controlling-generation-with-top-k-top-p#2-pick-from-amongst-the-top-tokens-top-k), [**top-p**](https://docs.cohere.ai/docs/controlling-generation-with-top-k-top-p#3-pick-from-amongst-the-top-tokens-whose-probabilities-add-up-to-15-top-p), and [**temperature**](https://docs.cohere.ai/docs/temperature) to modify the probability distribution before sampling from it. This further improves the quality of generations and introduces hyperparameters that we can play around with to get different generation behaviors (for example, increasing temperature makes our model take more risks and thus be more "creative"). 
-
-I recommend [Lillian Weng's Controllable Neural Text Generation](https://lilianweng.github.io/posts/2021-01-02-controllable-text-generation/) if you want a breakdown of yet more sampling techniques to control language model generations.
+I recommend [Lillian Weng's Controllable Neural Text Generation](https://lilianweng.github.io/posts/2021-01-02-controllable-text-generation/) if you want a breakdown of more sampling techniques to control language model generations.
 
 ### Training
 We train a GPT like any other neural network, using [**gradient descent**](https://en.wikipedia.org/wiki/Gradient_descent) with respect to some **loss function**. In the case of a GPT, we take the [**cross entropy loss**](https://www.youtube.com/watch?v=ErfnhcEV1O8) over the language modeling task:
@@ -619,7 +617,7 @@ Token IDs by themselves are not very good representations for a neural network. 
 To address these limitations, we'll take advantage of [word vectors](https://jaykmody.com/blog/attention-intuition/#word-vectors-and-similarity), specifically via a learned embedding matrix:
 
 ```python
-wte[inputs] # [n_embd] -> [n_seq, n_embd]
+wte[inputs] # [n_seq] -> [n_seq, n_embd]
 ```
 
 Recall,  `wte` is a `[n_vocab, n_embd]` matrix. It acts as a lookup table, where the $i$th row in the matrix corresponds to the learned vector for the $i$th token in our vocabulary. `wte[inputs]` uses [integer array indexing](https://numpy.org/doc/stable/user/basics.indexing.html#integer-array-indexing) to retrieve the vectors corresponding to each token in our input.
@@ -675,7 +673,7 @@ Couple things to note here:
 1. We first pass `x` through a **final layer normalization** layer before doing the projection to vocab. This is specific to the GPT-2 architecture (this is not present in the original GPT and Transformer papers).
 2. We are **reusing the embedding matrix** `wte` for the projection. Other GPT implementations may choose to use a separate learned weight matrix for the projection, however sharing the embedding matrix has a couple of advantages:
     * You save some parameters (although at GPT-3 scale, this is negligible).
-    * Since the matrix is both responsible for mapping both _to_ words and _from_ words, so in theory, it _may_ learn a richer representation compared to having two separate matrixes.
+    * Since the matrix is both responsible for mapping both _to_ words and _from_ words, in theory, it _may_ learn a richer representation compared to having two separate matrixes.
 4. We **don't apply `softmax`** at the end, so our outputs will be [logits](https://developers.google.com/machine-learning/glossary/#logits) instead of probabilities between 0 and 1. This is done for several reasons:
     * `softmax` is [monotonic](https://en.wikipedia.org/wiki/Monotonic_function), so for greedy sampling `np.argmax(logits)` is equivalent to `np.argmax(softmax(logits))` making `softmax` redundant
     * `softmax` is irreversible, meaning we can always go from `logits` to `probabilities` by applying `softmax`, but we can't go back to `logits` from `probabilities`, so for maximum flexibility, we output the `logits`
@@ -1081,6 +1079,8 @@ Oh boy, how does one even evaluate LLMs? Honestly, it's really hard. [HELM](http
 
 ### Architecture Improvements
 I recommend taking a look at [Phil Wang's X-Transformer's](https://github.com/lucidrains/x-transformers). It has the latest and greatest research on the transformer architecture. [This paper](https://arxiv.org/pdf/2102.11972.pdf) is also a pretty good summary.
+
+
 
 [^modelsize]: Although, with the [InstructGPT](https://arxiv.org/pdf/2210.11416.pdf) and [Chinchilla](https://arxiv.org/pdf/2203.15556.pdf) papers, we've realized that we don't actually need to train models that big. An optimally trained and instruction fine-tuned GPT at 1.3B parameters can outperform GPT-3 at 175B parameters.
 
