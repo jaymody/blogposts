@@ -44,7 +44,7 @@ def gpt(inputs: list[int]) -> list[list[float]]:
 ```
 
 #### Input
-The input is a **sequence** of integers that represent the _tokens_ of some _text_:
+The input is some text represented by a **sequence of integers** that map to **tokens** in the text:
 
 ```python
 # integers represent tokens in our text, for example:
@@ -53,7 +53,7 @@ The input is a **sequence** of integers that represent the _tokens_ of some _tex
 inputs =   [1,     0,    2,      4,     6]
 ```
 
-We determine the integer value of a token based on a _tokenizer_'s vocabulary:
+Tokens are sub-pieces of the text, which are produced using some kind of **tokenizer**. We can map tokens to integers using a **vocabulary**:
 
 ```python
 # the index of a token in the vocab represents the integer id for that token
@@ -105,7 +105,7 @@ output = gpt(inputs)
 # given the whole sequence ["not", "all", "heroes", "wear"], the model predicts the word "capes" with the highest probability
 ```
 
-To get a next token prediction for the whole sequence, we simply take the token with the highest probability in `output[-1]`:
+To get a **next token prediction** for the whole sequence, we simply take the token with the highest probability in `output[-1]`:
 
 ```python
 vocab = ["all", "not", "heroes", "the", "wear", ".", "capes"]
@@ -115,7 +115,7 @@ next_token_id = np.argmax(output[-1]) # next_token_id = 6
 next_token = vocab[next_token_id] # next_token = "capes"
 ```
 
-Taking the token with the highest probability as our final prediction is often referred to as [**greedy decoding**](https://docs.cohere.ai/docs/controlling-generation-with-top-k-top-p#1-pick-the-top-token-greedy-decoding) or **greedy sampling**.
+Taking the token with the highest probability as our prediction is known as [**greedy decoding**](https://docs.cohere.ai/docs/controlling-generation-with-top-k-top-p#1-pick-the-top-token-greedy-decoding) or **greedy sampling**.
 
 The task of predicting the next logical word in a sequence is called **language modeling**. As such, we can call a GPT a **language model**.
 
@@ -138,7 +138,7 @@ output_ids = generate(input_ids, 3) # output_ids = [2, 4, 6]
 output_tokens = [vocab[i] for i in output_ids] # "heroes" "wear" "capes"
 ```
 
-This process of predicting a future value (regression), and adding it back into the input (auto) is why you might see a GPT described as **autoregressive**.
+This process of predicting a future value (regression), and adding it back into the input (auto), is why you might see a GPT described as **autoregressive**.
 
 #### Sampling
 We can introduce some **stochasticity** (randomness) to our generations by sampling from the probability distribution instead of being greedy:
@@ -153,12 +153,10 @@ np.random.choice(np.arange(vocab_size), p=output[-1]) # capes
 np.random.choice(np.arange(vocab_size), p=output[-1]) # pants
 ```
 
-This allows us to generate different sentences given the same input. When combined with techniques like [**top-k**](https://docs.cohere.ai/docs/controlling-generation-with-top-k-top-p#2-pick-from-amongst-the-top-tokens-top-k), [**top-p**](https://docs.cohere.ai/docs/controlling-generation-with-top-k-top-p#3-pick-from-amongst-the-top-tokens-whose-probabilities-add-up-to-15-top-p), and [**temperature**](https://docs.cohere.ai/docs/temperature) which modify the distribution prior to sampling, the quality of our outputs is greatly increased.  These techniques also introduce some hyperparameters that we can play around with to get different generation behaviors (for example, increasing temperature makes our model take more risks and thus be more "creative"). 
-
-I recommend [Lillian Weng's Controllable Neural Text Generation](https://lilianweng.github.io/posts/2021-01-02-controllable-text-generation/) if you want a breakdown of more sampling techniques to control language model generations.
+This allows us to generate different sentences given the same input. When combined with techniques like [**top-k**](https://docs.cohere.ai/docs/controlling-generation-with-top-k-top-p#2-pick-from-amongst-the-top-tokens-top-k), [**top-p**](https://docs.cohere.ai/docs/controlling-generation-with-top-k-top-p#3-pick-from-amongst-the-top-tokens-whose-probabilities-add-up-to-15-top-p), and [**temperature**](https://docs.cohere.ai/docs/temperature), which modify the distribution prior to sampling, the quality of our outputs is greatly increased.  These techniques also introduce some hyperparameters that we can play around with to get different generation behaviors (for example, increasing temperature makes our model take more risks and thus be more "creative").
 
 ### Training
-We train a GPT like any other neural network, using [**gradient descent**](https://en.wikipedia.org/wiki/Gradient_descent) with respect to some **loss function**. In the case of a GPT, we take the [**cross entropy loss**](https://www.youtube.com/watch?v=ErfnhcEV1O8) over the language modeling task:
+We train a GPT like any other neural network, using [**gradient descent**](https://en.wikipedia.org/wiki/Gradient_descent) with respect to some **loss function**. In the case of a GPT, we take the **[cross entropy loss](https://www.youtube.com/watch?v=ErfnhcEV1O8) over the language modeling task**:
 
 ```python
 def lm_loss(inputs: list[int], params) -> float:
@@ -167,16 +165,16 @@ def lm_loss(inputs: list[int], params) -> float:
     # inputs = [not,     all,   heros,   wear,   capes]
     #      x = [not,     all,   heroes,  wear]
     #      y = [all,  heroes,     wear,  capes]
-    # 
+    #
     # of course, we don't have a label for inputs[-1], so we exclude it from x
     #
     # as such, for N inputs, we have N - 1 langauge modeling example pairs
     x, y = inputs[:-1], inputs[1:]
-    
+
     # forward pass
     # all the predicted next token probability distributions at each position
     output = gpt(x, params)
-    
+
     # cross entropy loss
     # we take the average over all N-1 examples
     loss = np.mean(-np.log(output[y]))
@@ -192,7 +190,7 @@ def train(texts: list[list[str]], params) -> float:
     return params
 ```
 
-We've added a `params` argument to the input of `gpt` for clarity. During each iteration of the training loop, we perform a gradient descent step to update the model parameters, making our model better and better at language modeling with each new piece of text it sees. This is a heavily simplified training setup, but it illustrates the point.
+This is a heavily simplified training setup, but it illustrates the point. Note, we've added a `params` argument to the input of `gpt` for clarity to show that our GPT is a neural network that has trainable parameters. During each iteration of the training loop, we perform a gradient descent step to update the model parameters, making our model better and better at language modeling with each new piece of text it sees.
 
 Notice, we don't use explicitly labelled data. Instead, we are able to produce the input/label pairs from just the raw text itself. This is referred to as **[self-supervised learning](https://en.wikipedia.org/wiki/Self-supervised_learning)**.
 
@@ -202,16 +200,18 @@ This means we can really easily scale up train data, just show the model as much
 
 You need a sufficiently large model to be able to learn from all this data, which is why GPT-3 is **175 billion parameters** and probably cost between [$1m-10m in compute cost to train](https://twitter.com/eturner303/status/1266264358771757057).[^modelsize]
 
-This self-supervised training step is called **pre-training**, since we can reuse the "pre-trained" models weights to further train the model on downstream tasks, such as classifying if a tweet is toxic or not.
+This self-supervised training step is called **pre-training**, since we can reuse the "pre-trained" models weights to further train the model on downstream tasks, such as classifying if a tweet is toxic or not. Pre-trained models are also sometimes called **foundation models**.
 
 Training the model on downstream tasks is called **fine-tuning**, since the model weights have already been pre-trained to understand language, it's just being fine-tuned to the specific task at hand.
 
 The "pre-training on a general task + fine-tuning on a specific task" strategy is called [transfer learning](https://en.wikipedia.org/wiki/Transfer_learning).
 
-### Prompting
-In principle, the original [GPT](https://s3-us-west-2.amazonaws.com/openai-assets/research-covers/language-unsupervised/language_understanding_paper.pdf) was just about the benefits of pre-training a transformer model for transfer learning, similar to [BERT](https://arxiv.org/pdf/1810.04805.pdf).
+Most state-of-the-art large language models also go through an additional [**instruction fine-tuning**](https://arxiv.org/abs/2203.02155) step after being pre-trained. In this step, the model is shown thousands of prompt + completion pairs that were **human labeled**. Why? While language modeling on Wikipedia pages makes the model good at continuing sentences, but it doesn't make it particularly good at following instructions, or having a conversation, or summarizing a document (all the things we would like a GPT to do). Fine-tuning them on human labelled instruction + completion pairs is a way to teach the model how it can be more useful, and make them easier to interact with.
 
-It wasn't until the [GPT-2](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) and [GPT-3](https://arxiv.org/abs/2005.14165) papers that we realized a pre-trained GPT model by itself was capable of performing any task by just prompting it and performing autoregressive language modeling, no fine-tuning needed. This is referred to as **in-context learning**, because the model is using just the context of the prompt to perform the task. In-context learning can be zero shot, one shot, or few shot:
+### Prompting
+In principle, the original [GPT](https://s3-us-west-2.amazonaws.com/openai-assets/research-covers/language-unsupervised/language_understanding_paper.pdf) paper was just about the benefits of pre-training a transformer model for transfer learning, similar to [BERT](https://arxiv.org/pdf/1810.04805.pdf). That is, pre-training a 117M GPT and then fine-tuning it on a labelled dataset achieved state-of-the-art performance compared to just training it on the labelled dataset directly.
+
+It wasn't until the [GPT-2](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) and  [GPT-3](https://arxiv.org/abs/2005.14165) papers that we realized a GPT model, when pre-trained on enough data with enough parameters, **by itself** was capable of performing any task by just prompting it and performing autoregressive language modeling, no fine-tuning needed. This is referred to as **in-context learning**, because the model is using just the context of the prompt to perform the task. In-context learning can be zero shot, one shot, or few shot:
 
 ![Figure 2.1 from the GPT-3 Paper](https://i.imgur.com/VKZXC0K.png)
 
@@ -237,7 +237,7 @@ pip install -r requirements.txt
 Note, if you are using an M1 Macbook, you'll need to change `tensorflow` to `tensorflow-macos` in `requirements.txt` before running `pip install`. This code was tested on `Python 3.9.10`.
 
 A quick breakdown of each of the files:
-* **`encoder.py`** contains the code for OpenAI's BPE Tokenizer, taken straight from their [gpt-2 repo](https://github.com/openai/gpt-2/blob/master/src/encoder.py). 
+* **`encoder.py`** contains the code for OpenAI's BPE Tokenizer, taken straight from their [gpt-2 repo](https://github.com/openai/gpt-2/blob/master/src/encoder.py).
 * **`utils.py`** contains the code to download and load the GPT-2 model weights, tokenizer, and hyperparameters.
 * **`gpt2.py`** contains the actual GPT model and generation code, which we can run as a python script.
 * **`gpt2_pico.py`** is the same as `gpt2.py`, but in even fewer lines of code. Why? Because why not.
@@ -386,11 +386,11 @@ We'll use these symbols in our code's comments to show the underlying shape of t
 >>>         return {k: shape_tree(v) for k, v in d.items()}
 >>>     else:
 >>>         ValueError("uh oh")
->>> 
+>>>
 >>> print(shape_tree(params))
 {
     "wpe": [1024, 768],
-    "wte": [50257, 768],    
+    "wte": [50257, 768],
     "ln_f": {"b": [768], "g": [768]},
     "blocks": [
         {
@@ -448,7 +448,7 @@ For reference, here's the shapes of `params` but with the numbers replaced by th
 ```python
 {
     "wpe": [n_ctx, n_embd],
-    "wte": [n_vocab, n_embd],    
+    "wte": [n_vocab, n_embd],
     "ln_f": {"b": [n_embd], "g": [n_embd]},
     "blocks": [
         {
@@ -494,8 +494,6 @@ array([[ 0.84119,  1.9546 ],
        [-0.0454 ,  0.34571]])
 ```
 
-[BERT](https://arxiv.org/pdf/1810.04805.pdf) popularized the use of GeLU in transformer models, and I guess it stuck around,
-
 ### Softmax
 Good ole [softmax](https://en.wikipedia.org/wiki/Softmax_function):
 
@@ -540,7 +538,7 @@ Layer normalization ensures that the inputs for each layer are always within a c
 
 Layer norm is used instead of batch norm in the transformer for [various reasons](https://stats.stackexchange.com/questions/474440/why-do-transformers-use-layer-norm-instead-of-batch-norm). The differences between various normalization techniques is outlined [in this excellent blog post](https://tungmphung.com/deep-learning-normalization-methods/).
 
-We apply layer normalization over the last axis of the input. 
+We apply layer normalization over the last axis of the input.
 
 ```python
 >>> x = np.array([[2, 2, 3], [-5, 0, 1]])
@@ -643,7 +641,7 @@ We can add our token and positional embeddings to get a combined embedding that 
 ```python
 # token + positional embeddings
 x = wte[inputs] + wpe[range(len(inputs))]  # [n_seq] -> [n_seq, n_embd]
-    
+
 # x[i] represents the word embedding for the ith word + the positional
 # embedding for the ith position
 ```
@@ -749,7 +747,7 @@ This layer is probably the most difficult part of the transformer to understand.
 
 #### Attention
 I have another [blog post](https://jaykmody.com/blog/attention-intuition/) on this topic, where we derive the scaled dot product equation proposed in the [original transformer paper](https://arxiv.org/pdf/1706.03762.pdf) from the ground up:
-$$\text{attention}(Q, K, V) = \text{softmax}(\frac{QK^T}{\sqrt{d_k}})V$$As such, I'm going to skip an explanation for attention in this post. You can also reference [Lilian Weng's Attention? Attention!](https://lilianweng.github.io/posts/2018-06-24-attention/) and [Jay Alammar's The Illustrated Transformer](https://jalammar.github.io/visualizing-neural-machine-translation-mechanics-of-seq2seq-models-with-attention/) which are also great explanations for attention. 
+$$\text{attention}(Q, K, V) = \text{softmax}(\frac{QK^T}{\sqrt{d_k}})V$$As such, I'm going to skip an explanation for attention in this post. You can also reference [Lilian Weng's Attention? Attention!](https://lilianweng.github.io/posts/2018-06-24-attention/) and [Jay Alammar's The Illustrated Transformer](https://jalammar.github.io/visualizing-neural-machine-translation-mechanics-of-seq2seq-models-with-attention/) which are also great explanations for attention.
 
 We'll just adapt our attention implementation from my blog post:
 
