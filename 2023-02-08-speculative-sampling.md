@@ -139,7 +139,7 @@ For HumanEval we get a theoretical speedup of **2.44**, while the paper reports 
 
 For XSum we get a theoretical speedup of **1.89**, while the paper reports an empirical speedup of **1.92**.
 
-[We can run our autoregressive and speculative sampling implementations against GPT-2](https://github.com/jaymody/speculative-sampling/blob/main/main.py):
+We can also try and reproduce these results ourselves by using running our implementation with GPT-2 (1.5B as target, 124M as draft), see [github.com/jaymody/speculative-samlping](https://github.com/jaymody/speculative-sampling):
 
 ```python
 python main.py \
@@ -151,19 +151,19 @@ python main.py \
     --seed 123
 ```
 
-Which gives the following result:
+Which gives a speedup of **2.38** (of course, I have not verified that there is no performance degradation, but qualitatively, the output at least is cohesive and makes sense):
 
 ```text
 Autoregressive Decode
 ---------------------
-Time = 164.96s
+Time = 71.64s
 Text = Alan Turing theorized that computers would one day become so powerful that they would be able to think like humans.
 
 In the 1950s, he proposed a way to build a computer that could think like a human. He called it the "T
 
 Speculative Decode
 ------------------
-Time = 104.55s
+Time = 30.11s
 Text = Alan Turing theorized that computers would one day become so powerful that they would be able to think for themselves. But it's not just computers that are capable of thinking for themselves.
 
 In fact, the brain is a computer, and it's capable
