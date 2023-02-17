@@ -44,12 +44,16 @@ In **speculative sampling**, we have two models:
 1. A smaller, faster **draft model** (i.e. 7B Chinchilla GPT model)
 2. A larger, slower **target model** (i.e. 70B Chinchilla GPT model)
 
-Instead of decoding a single token at each iteration, speculative sampling decodes between 1 to $K$ tokens per iteration:
+Instead of decoding a single token at each iteration, speculative sampling decodes between 1 to $K + 1$ tokens per iteration:
 
 1. The draft model decodes $K$ tokens autoregressively.
 2. This new predicted sequence is passed as input to both the draft model and target models to get their respective probability outputs.
 3. Using these probabilities, we determine how many of the predicted $K$ tokens we want to keep based on a **rejection criteria**. If a token is rejected, we resample it using a combination of the two distributions and don't accept any more tokens.
 4. If all $K$ tokens were accepted, we sample an additional final token.
+
+In short, the draft model _speculates_ what the output is $K$ steps into the future. The target model determines how many of those tokens we should accept. If our draft model is able to achieve a high enough acceptance rate and is sufficiently faster than the target model, then speculative sampling will yield a speedup.
+
+You can imagine speculative sampling will work particularly well on common sequences of words. For example, the phrase "The apple doesn't fall far from the tree" is a common idiom in English. Given just "The apple doesn't fall", autoregressive decoding would require 4 forward passes of the target model, one for each word. In speculative sampling, with $K=4$, the draft model would predict "far from the tree" (since it is a common phrase), and the target model just has to do a single forward pass to verify that this is correct, saving time. Of course this won't occur every time, sometimes none of the $K$ predictions are accepted, sometimes only some of them but not all of them are accepted. 
 
 Here's the full algorithm as defined in the paper:
 
@@ -103,12 +107,8 @@ def speculative_sampling(x, draft_model, target_model, N, K):
 
 The time complexity for this algorithm is $O(\frac{N}{r(K + 1)} \cdot (t_{\text{draft}}(K + 1) + t_{\text{target}}))$.
 
-* $\frac{N}{r(K+1)}$: The number of iterations in our while loop, which is the number of tokens we want to decode $N$ divided by the average number of tokens that get decoded per iteration $r(K + 1)$, where the acceptance rate $r$ is the average number of tokens decoded per iteration divided by $K + 1$, as reported in the paper. We can recover the average number of tokens decoded by multiplying $r$ by its denominator $K + 1$.[^acceptance]
+* $\frac{N}{r(K+1)}$: The number of iterations in our while loop. This works out to the number of tokens we want to decode $N$ divided by the average number of tokens that get decoded per iteration $r(K + 1)$. The paper doesn't directly report the average number of tokens that get decoded per iteration, instead they provide the acceptance rate $r$ (which is the average number of tokens decoded per iteration divided by $K + 1$)[^acceptance]. As such, we can recover the average number of tokens decoded simply by multiplying $r$ by $K + 1$.
 * $t_{\text{draft}}(K + 1) + t_{\text{target}}$: The time complexity for each iteration in the loop. The $t_{\text{target}}$ term is for the single forward pass we do for the target model. The term $t_{\text{draft}}(K + 1)$  is for all the forward passes of the draft model, for which there are $K + 1$ ($K$ for step 1 and the $+1$ from step 2).
-
-You can imagine this is useful for common sequences of tokens. For example, the phrase "The apple doesn't fall far from the tree" is a common idiom in English. Given just "The apple doesn't fall", autoregressive decoding would require 4 forward passes of the target model, one for each word. In speculative sampling, with $K=4$, the draft model would predict "far from the tree" since it is a common phrase, and the target model just has to do a single forward pass to verify that this is correct, saving time.
-
-Of course this won't occur every time, sometimes none of the $K$ predictions are accepted, sometimes only some of them but not all of them are accepted. However, given a draft model with a high enough acceptance rate that is also a decent amount faster, we can decode much faster than regular autoregressive decoding.
 
 # Speedup Results
 The paper reports the following speedups for their 70B Chinchilla model (using a specially trained 7B Chinchilla as the draft model):
@@ -169,6 +169,4 @@ Text = Alan Turing theorized that computers would one day become so powerful tha
 In fact, the brain is a computer, and it's capable
 ```
 
-
-
-[^acceptance]: The wording from the paper for $r$ is a bit misleading. The paper states that $r$ is "the average number of tokens **accepted** divided by $K + 1$", when in actuality $r$ is "the average number of tokens **decoded** divided by $K + 1$". I confirmed this with the author of the paper.
+[^acceptance]: The wording from the paper for $r$ is a bit misleading. The paper states that $r$ is "the average number of tokens **accepted** divided by $K + 1$". This gives the impression they are reporting the rate at which **just** the draft tokens are accepted (i.e. don't include the resampled and final sampled tokens). In actuality, $r$ is "the average number of tokens **decoded** divided by $K + 1$" meaning we also includes the resampled and final token. This would make sense since otherwise, they would have to divided $r$ by $K$ and not $K + 1$ when reporting $r$. I confirmed this with the authors of the paper.
