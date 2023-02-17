@@ -139,7 +139,7 @@ For HumanEval we get a theoretical speedup of **2.44**, while the paper reports 
 
 For XSum we get a theoretical speedup of **1.89**, while the paper reports an empirical speedup of **1.92**.
 
-We can also try and reproduce these results ourselves by using running our implementation with GPT-2 (1.5B as target, 124M as draft), see [github.com/jaymody/speculative-samlping](https://github.com/jaymody/speculative-sampling):
+We can reproduce these results by [running our implementation with GPT-2 1.5B as our target model and GPT-2 124M our draft model](https://github.com/jaymody/speculative-sampling)[^result]:
 
 ```python
 python main.py \
@@ -151,7 +151,7 @@ python main.py \
     --seed 123
 ```
 
-Which gives a speedup of **2.38** (of course, I have not verified that there is no performance degradation, but qualitatively, the output at least is cohesive and makes sense):
+Which gives a speedup of **2.38** (of course, I have not verified that there is no performance degradation, but qualitatively, the output seems about right):
 
 ```text
 Autoregressive Decode
@@ -170,3 +170,4 @@ In fact, the brain is a computer, and it's capable
 ```
 
 [^acceptance]: The wording from the paper for $r$ is a bit misleading. The paper states that $r$ is "the average number of tokens **accepted** divided by $K + 1$". This gives the impression they are reporting the rate at which **just** the draft tokens are accepted (i.e. don't include the resampled and final sampled tokens). In actuality, $r$ is "the average number of tokens **decoded** divided by $K + 1$" meaning we also includes the resampled and final token. This would make sense since otherwise, they would have to divided $r$ by $K$ and not $K + 1$ when reporting $r$. I confirmed this with the authors of the paper.
+[^result]: The implementation for GPT-2 used here is a very naive (i.e. doesn't include KV caching among many other things). That is to say, the speedup results here should be taken with a grain of salt, but still it serves as a good validation for speculative sampling.
