@@ -130,8 +130,8 @@ def generate(inputs, n_tokens_to_generate):
     for _ in range(n_tokens_to_generate): # auto-regressive decode loop
         output = gpt(inputs) # model forward pass
         next_id = np.argmax(output[-1]) # greedy sampling
-        inputs = np.append(out, [next_id]) # append prediction to input
-    return list(inputs[len(inputs) - n_tokens_to_generate :])  # only return generated ids
+        inputs.append(int(next_id)) # append prediction to input
+    return inputs[len(inputs) - n_tokens_to_generate :]  # only return generated ids
 
 input_ids = [1, 0] # "not" "all"
 output_ids = generate(input_ids, 3) # output_ids = [2, 4, 6]
@@ -265,9 +265,9 @@ def generate(inputs, params, n_head, n_tokens_to_generate):
     for _ in tqdm(range(n_tokens_to_generate), "generating"):  # auto-regressive decode loop
         logits = gpt2(inputs, **params, n_head=n_head)  # model forward pass
         next_id = np.argmax(logits[-1])  # greedy sampling
-        inputs = np.append(inputs, [next_id])  # append prediction to input
+        inputs.append(int(next_id))  # append prediction to input
 
-    return list(inputs[len(inputs) - n_tokens_to_generate :])  # only return generated ids
+    return inputs[len(inputs) - n_tokens_to_generate :]  # only return generated ids
 
 
 def main(prompt: str, n_tokens_to_generate: int = 40, model_size: str = "124M", models_dir: str = "models"):
@@ -909,7 +909,7 @@ def causal_self_attention(x, c_attn, c_proj): # [n_seq, n_embd] -> [n_seq, n_emb
     q, k, v = qkv = np.split(x, 3, axis=-1) # [n_seq, 3*n_embd] -> 3 of [n_seq, n_embd]
 
     # causal mask to hide future inputs from being attended to
-    causal_mask = (1 - np.tri(x.shape[0])) * -1e10  # [n_seq, n_seq]
+    causal_mask = (1 - np.tri(x.shape[0]), dtype=x.dtype) * -1e10  # [n_seq, n_seq]
 
     # perform causal self attention
     x = attention(q, k, v, causal_mask) # [n_seq, n_embd] -> [n_seq, n_embd]
@@ -935,7 +935,7 @@ def mha(x, c_attn, c_proj, n_head):  # [n_seq, n_embd] -> [n_seq, n_embd]
     qkv_heads = list(map(lambda x: np.split(x, n_head, axis=-1), qkv))  # [3, n_seq, n_embd] -> [3, n_head, n_seq, n_embd/n_head]
 
     # causal mask to hide future inputs from being attended to
-    causal_mask = (1 - np.tri(x.shape[0])) * -1e10  # [n_seq, n_seq]
+    causal_mask = (1 - np.tri(x.shape[0]), dtype=x.dtype) * -1e10  # [n_seq, n_seq]
 
     # perform attention over each head
     out_heads = [attention(q, k, v, causal_mask) for q, k, v in zip(*qkv_heads)]  # [3, n_head, n_seq, n_embd/n_head] -> [n_head, n_seq, n_embd/n_head]

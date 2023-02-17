@@ -3,7 +3,7 @@ title: "Speculative Sampling"
 date: 2023-02-08
 description: "A review of \"Accelerating Large Language Model Decoding with Speculative Sampling\" from Deepmind."
 ---
-This post provides an overview, implementation, and time complexity analysis of DeepMind's paper [Accelerrating Large Language Model Decoding with Speculative Sampling](https://arxiv.org/abs/2302.01318).
+This post provides an overview, implementation, and time complexity analysis of DeepMind's paper [Accelerating Large Language Model Decoding with Speculative Sampling](https://arxiv.org/abs/2302.01318).
 
 Code for this blog post can be found at [github.com/jaymody/speculative-samlping](https://github.com/jaymody/speculative-sampling).
 
@@ -41,14 +41,14 @@ The time complexity of this algorithm is $O(N \cdot t_{\text{model}})$:
 # Speculative Sampling
 In **speculative sampling**, we have two models:
 
-1. A smaller, faster **draft model** (i.e. 7B Chincilla GPT model)
-2. A larger, slower **target model** (i.e. 70B Chincilla GPT model)
+1. A smaller, faster **draft model** (i.e. 7B Chinchilla GPT model)
+2. A larger, slower **target model** (i.e. 70B Chinchilla GPT model)
 
 Instead of decoding a single token at each iteration, speculative sampling decodes between 1 to $K$ tokens per iteration:
 
-1. The draft model decodes $K$ tokens auto-regressively.
+1. The draft model decodes $K$ tokens autoregressively.
 2. This new predicted sequence is passed as input to both the draft model and target models to get their respective probability outputs.
-3. Using these probabilties, we determine how many of the predicted $K$ tokens we want to keep based on a **rejection criteria**. If a token is rejected, we resample it using a combination of the two distributions and we don't accept any more tokens.
+3. Using these probabilities, we determine how many of the predicted $K$ tokens we want to keep based on a **rejection criteria**. If a token is rejected, we resample it using a combination of the two distributions and don't accept any more tokens.
 4. If all $K$ tokens were accepted, we sample an additional final token.
 
 Here's the full algorithm as defined in the paper:
@@ -103,21 +103,21 @@ def speculative_sampling(x, draft_model, target_model, N, K):
 
 The time complexity for this algorithm is $O(\frac{N}{r(K + 1)} \cdot (t_{\text{draft}}(K + 1) + t_{\text{target}}))$.
 
-* $\frac{N}{r(K+1)}$: The number of iterations in our while loop, which is the number of tokens we want to decode $N$ divided by the average number of tokens that get decoded per iteration $r(K + 1)$, where the acceptance rate $r$ is the average number of tokens decoded per iteration divided by $K + 1$, as reported in the paper. We can recover the average number of tokens decoded by multiplying $r$ by it's denominator $K + 1$.[^acceptance]
+* $\frac{N}{r(K+1)}$: The number of iterations in our while loop, which is the number of tokens we want to decode $N$ divided by the average number of tokens that get decoded per iteration $r(K + 1)$, where the acceptance rate $r$ is the average number of tokens decoded per iteration divided by $K + 1$, as reported in the paper. We can recover the average number of tokens decoded by multiplying $r$ by its denominator $K + 1$.[^acceptance]
 * $t_{\text{draft}}(K + 1) + t_{\text{target}}$: The time complexity for each iteration in the loop. The $t_{\text{target}}$ term is for the single forward pass we do for the target model. The term $t_{\text{draft}}(K + 1)$  is for all the forward passes of the draft model, for which there are $K + 1$ ($K$ for step 1 and the $+1$ from step 2).
 
-You can imagine this is useful for common sequences of tokens. For example, the phrase "The apple doesn't fall far from the tree" is a common idiom in English. Given just "The apple doesn't fall", auto-regressive decoding would require 4 forward passes of the target model, one for each word. In speculative sampling, with $K=4$, the draft model would predict "far from the tree" since it is a common phrase, and the target model just has to do a single forward pass to verify that this is correct, saving time.
+You can imagine this is useful for common sequences of tokens. For example, the phrase "The apple doesn't fall far from the tree" is a common idiom in English. Given just "The apple doesn't fall", autoregressive decoding would require 4 forward passes of the target model, one for each word. In speculative sampling, with $K=4$, the draft model would predict "far from the tree" since it is a common phrase, and the target model just has to do a single forward pass to verify that this is correct, saving time.
 
-Of coures this won't occur every time, sometimes none of the $K$ predictions are accepted, sometimes only some of them but not all of them are accepted. However, given a draft model with a high enough acceptance rate that is also a decent amount faster, we can decode much faster than regular auto-regressive decoding.
+Of course this won't occur every time, sometimes none of the $K$ predictions are accepted, sometimes only some of them but not all of them are accepted. However, given a draft model with a high enough acceptance rate that is also a decent amount faster, we can decode much faster than regular autoregressive decoding.
 
 # Speedup Results
-The paper reports the following speedups for their 70B Chincilla model (using a specially trained 7B Chincilla as the draft model):
+The paper reports the following speedups for their 70B Chinchilla model (using a specially trained 7B Chinchilla as the draft model):
 
 ![](https://i.imgur.com/3ZcmZfr.png)
 
-You can see that there was no performance degredation and the decoding process is 2 times faster as compared to autoregressive decoding.
+You can see that there was no performance degradation and the decoding process is 2 times faster as compared to autoregressive decoding.
 
-Let's compare these empirical speedup numbers to the theoretical speedup numbers, which we can can calculate using our time complexity equations:
+Let's compare these empirical speedup numbers to the theoretical speedup numbers, which we can calculate using our time complexity equations:
 
 $$
 \begin{align}
@@ -171,4 +171,4 @@ In fact, the brain is a computer, and it's capable
 
 
 
-[^acceptance]: The wording from the paper for $r$ is average number of tokens **accepted** divided by $K + 1$, not the average number of tokens **decoded**. The paper is a bit misleading here, because the word **accepted** gives the impression that this only includes tokens that were accepted by the rejection criteria (i.e. we don't include the resampled or the final token). However, this can't be true, because they divide by $K + 1$ not $K$, meaning that the resampled and final token are being included in this "average". If this wasn't the case, it would be impossibe for $r = 1$ since at best $r = \frac{K}{K + 1}$, but the paper reports $r = 1$ for $K = 0$, so they must be including the final and resampling token in the average. As such, the _acceptance_ rate $r$ is really the rate at which tokens are **decoded**, not just **accepted**.
+[^acceptance]: The wording from the paper for $r$ is a bit misleading. The paper states that $r$ is "the average number of tokens **accepted** divided by $K + 1$", when in actuality $r$ is "the average number of tokens **decoded** divided by $K + 1$". I confirmed this with the author of the paper.

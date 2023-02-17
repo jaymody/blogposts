@@ -20,15 +20,15 @@ You're probably familiar with this concept as a dictionary or hash map:
 
 ```python
 >>> d = {
->>>     "racket": 10,
->>>     "ball": 5,
->>>     "tree": 2,
+>>>     "apple": 10,
+>>>     "banana": 5,
+>>>     "chair": 2,
 >>> }
 >>> d.keys()
-['racket', 'ball', 'tree']
+['apple', 'banana', 'chair']
 >>> d.values()
 [10, 5, 2]
->>> query = "racket"
+>>> query = "apple"
 >>> d[query]
 10
 ```
@@ -39,16 +39,16 @@ What if instead we wanted to do a lookup based on the _meaning_ of a word?
 
 ## Key-Value Lookups based on Meaning
 ---
-Say we wanted to look up the word "tennis" in our previous example, how do we choose which "key" is the best match?
+Say we wanted to look up the word "fruit" in our previous example, how do we choose which "key" is the best match?
 
-It's obviously not "tree", but both "racket" and "ball" seem appropriate matches. It's hard to choose one or the other, tennis feels more like a combination of racket and ball rather than a strict match for either.
+It's obviously not "chair", but both "apple" and "banana" seem appropriate matches. It's hard to choose one or the other, fruit feels more like a combination of apple and banana rather than a strict match for either.
 
-So, let's not choose. Instead we'll do exactly that, take a combination of racket and ball. For example, say we assign a 60% meaning based match for racket, a 40% match for ball, and 0% match for tree, our output value would be the weighted sum of the values:
+So, let's not choose. Instead we'll do exactly that, take a combination of apple and banana. For example, say we assign a 60% meaning based match for apple, a 40% match for banana, and 0% match for chair, our output value would be the weighted sum of the values:
 
 ```python
->>> query = "tennis"
->>> d = {"racket": 10, "ball": 5, "tree": 2}
->>> 0.6 * d["racket"] + 0.4 * d["ball"] + 0.0 * d["tree"]
+>>> query = "fruit"
+>>> d = {"apple": 10, "banana": 5, "chair": 2}
+>>> 0.6 * d["apple"] + 0.4 * d["banana"] + 0.0 * d["chair"]
 8
 ```
 
@@ -86,7 +86,7 @@ Okay cool, but where do these word vectors actually come from? In the context of
 
 ## Attention Scores using the Dot Product
 ---
-If we treat our query and keys as word vectors instead of strings ($\boldsymbol{q} = \boldsymbol{v}_{\text{tennis}}$ and $\boldsymbol{k} = [\boldsymbol{v}_{\text{racket}} \ \boldsymbol{v}_{\text{ball}} \ \boldsymbol{v}_{\text{tree}}]$, all with dimensionality $d_k$), we can compute the similarity between our query and the $i$th key as a dot product:
+If we treat our query and keys as word vectors instead of strings ($\boldsymbol{q} = \boldsymbol{v}_{\text{fruit}}$ and $\boldsymbol{k} = [\boldsymbol{v}_{\text{apple}} \ \boldsymbol{v}_{\text{banana}} \ \boldsymbol{v}_{\text{chair}}]$, all with dimensionality $d_k$), we can compute the similarity between our query and the $i$th key as a dot product:
 $$
 x_i = \boldsymbol{q} \cdot \boldsymbol{k}_i
 $$We can compute the dot product for all $n_k$ keys with:
@@ -158,7 +158,7 @@ def kv_lookup(query, keys, values):
     )
 
 # returns some float number
-print(kv_lookup("tennis", ["racket", "ball", "tree"], [10, 5, 2]))
+print(kv_lookup("fruit", ["apple", "banana", "chair"], [10, 5, 2]))
 ```
 
 ## Scaled Dot Product Attention
@@ -170,9 +170,9 @@ The values associated with each key need not be a singular number, they can be v
 
 ```python
 d = {
-    "racket": [0.9, 0.2, -0.5, 1.0]
-    "ball": [1.2, 2.0, 0.1, 0.2]
-    "tree": [-1.2, -2.0, 1.0, -0.2]
+    "apple": [0.9, 0.2, -0.5, 1.0]
+    "banana": [1.2, 2.0, 0.1, 0.2]
+    "chair": [-1.2, -2.0, 1.0, -0.2]
 }
 ```
 
