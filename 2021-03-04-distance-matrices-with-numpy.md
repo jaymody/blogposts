@@ -145,13 +145,13 @@ xy = np.matmul(X, X_train.T)
 # x2 from (m) -> (m, 1), numpy will handle the rest of the broadcasting for us
 # see: https://numpy.org/doc/stable/user/basics.broadcasting.html
 x2 = x2.reshape(-1, 1)
-dists = x2 - 2*xy + y2 # (m, 1) repeat columnwise + (m, n) + (n) repeat rowwise -> (m, n)
+dists = np.sqrt(x2 - 2*xy + y2) # (m, 1) repeat columnwise + (m, n) + (n) repeat rowwise -> (m, n)
 ```
 
 ## -1 Loops?!!?! 🤔
 
 ```python
-from sklearn.neighbours import KNeighborsClassifier
+from sklearn.neighbors import KNeighborsClassifier
 ```
 
 ## Speed Comparison

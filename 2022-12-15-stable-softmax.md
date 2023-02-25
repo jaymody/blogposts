@@ -51,7 +51,7 @@ np.finfo(np.float64).smallest_subnormal
 
 When we go beyond these limits, we start seeing funky behaviour:
 ```python
-np.finfo(np.float64).max * 2 
+np.finfo(np.float64).max * 2
 # inf, overflow error
 
 np.inf - np.inf
@@ -163,11 +163,11 @@ In this case `softmax(y_hat) = [0, 1]`, with `y_true = 0`, we get `-log(0) = inf
 $$
 \begin{align}
 \log(\text{softmax}(x)_i)
-& = \log(\frac{e^{x_i - \min(x)}}{\sum_j e^{x_j - \min(x)}}) \\
-&= \log(e^{x_i - \min(x)}) - \log(\sum_j e^{x_j - \min(x)}) \\
-&= (x_i - \min(x))\log(e) - \log(\sum_j e^{x_j - \min(x)}) \\
-&= (x_i - \min(x))\cdot 1 - \log(\sum_j e^{x_j - \min(x)}) \\
-&= x_i - \min(x) - \log(\sum_j e^{x_j - \min(x)}) \\
+& = \log(\frac{e^{x_i - \max(x)}}{\sum_j e^{x_j - \max(x)}}) \\
+&= \log(e^{x_i - \max(x)}) - \log(\sum_j e^{x_j - \max(x)}) \\
+&= (x_i - \max(x))\log(e) - \log(\sum_j e^{x_j - \max(x)}) \\
+&= (x_i - \max(x))\cdot 1 - \log(\sum_j e^{x_j - \max(x)}) \\
+&= x_i - \max(x) - \log(\sum_j e^{x_j - \max(x)}) \\
 \end{align}
 $$
 This new equation guarentees that the sum inside the log will always be $\geq 1$, so we no longer need to worry about `log(0)` errors.
