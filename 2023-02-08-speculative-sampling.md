@@ -7,6 +7,8 @@ This post provides an overview, implementation, and time complexity analysis of 
 
 Code for this blog post can be found at [github.com/jaymody/speculative-samlping](https://github.com/jaymody/speculative-sampling).
 
+**EDIT (Apr 13th, 2023):** Updated code and time complexity to avoid the extra forward pass of the draft model (credits to [KexinFeng](https://github.com/jaymody/speculative-sampling/issues/1)).
+
 [[toc]]
 
 # Autoregressive Sampling
@@ -69,33 +71,32 @@ def speculative_sampling(x, draft_model, target_model, N, K):
     T = len(x) + N
 
     while n < T:
-        # Step 1: auto-regressive decode K tokens from draft model
+        # Step 1: auto-regressive decode K tokens from draft model and get final p
         x_draft = x
         for _ in range(K):
-            x_draft = np.append(x_draft, sample(draft_model(x_draft)[-1]))
+            p = draft_model(x_draft)
+            x_draft = np.append(x_draft, sample(p[-1]))
 
-        # Step 2: full draft and target model forward passes on x_draft
-        p = draft_model(x_draft)
+        # Step 2: target model forward passes on x_draft
         q = target_model(x_draft)
 
         # Step 3: append draft tokens based on rejection criterion and resample
         # a token on rejection
-        keep_n = 0
+        all_accepted = True
         for _ in range(K):
-            r = np.random.random()
             i = n - 1
             j = x_draft[i + 1]
-            if r < min(1, q[i][j] / p[i][j]):  # accepted
+            if np.random.random() < min(1, q[i][j] / p[i][j]):  # accepted
                 x = np.append(x, j)
                 n += 1
-                keep_n += 1
             else:  # rejected
                 x = np.append(x, sample(max_fn(q[i] - p[i])))  # resample
                 n += 1
+                all_accepted = False
                 break
 
         # Step 4: if all draft tokens were accepted, sample a final token
-        if keep_n == K:
+        if all_accepted:
             x = np.append(x, sample(q[-1]))
             n += 1
 
@@ -105,10 +106,10 @@ def speculative_sampling(x, draft_model, target_model, N, K):
     return x
 ```
 
-The time complexity for this algorithm is $O(\frac{N}{r(K + 1)} \cdot (t_{\text{draft}}(K + 1) + t_{\text{target}}))$.
+The time complexity for this algorithm is $O(\frac{N}{r(K + 1)} \cdot (t_{\text{draft}}K + t_{\text{target}}))$.
 
 * $\frac{N}{r(K+1)}$: The number of iterations in our while loop. This works out to the number of tokens we want to decode $N$ divided by the average number of tokens that get decoded per iteration $r(K + 1)$. The paper doesn't directly report the average number of tokens that get decoded per iteration, instead they provide the acceptance rate $r$ (which is the average number of tokens decoded per iteration divided by $K + 1$)[^acceptance]. As such, we can recover the average number of tokens decoded simply by multiplying $r$ by $K + 1$.
-* $t_{\text{draft}}(K + 1) + t_{\text{target}}$: The time complexity for each iteration in the loop. The $t_{\text{target}}$ term is for the single forward pass we do for the target model. The term $t_{\text{draft}}(K + 1)$  is for all the forward passes of the draft model, for which there are $K + 1$ ($K$ for step 1 and the $+1$ from step 2).
+* $t_{\text{draft}}K + t_{\text{target}}$: The time complexity for each iteration in the loop. The $t_{\text{target}}$ term is for the single forward pass of the target model in step 2, and $t_{\text{draft}}K$ is for the $K$ forward passes of the draft model in step 1.
 
 # Speedup Results
 The paper reports the following speedups for their 70B Chinchilla model (using a specially trained 7B Chinchilla as the draft model):
@@ -122,9 +123,9 @@ Let's compare these empirical speedup numbers to the theoretical speedup numbers
 $$
 \begin{align}
 \text{speedup} & = \frac{\text{time complexity of autoregressive}}{\text{time complexity of speculative}} \\
-& = \frac{N\cdot t_{\text{target}}}{\frac{N}{r(K + 1)} \cdot (t_{\text{draft}}(K + 1) + t_{\text{target}})}
+& = \frac{N\cdot t_{\text{target}}}{\frac{N}{r(K + 1)} \cdot (t_{\text{draft}}K + t_{\text{target}})}
 & \\
-& = \frac{r(K + 1) \cdot t_{\text{target}}}{t_{\text{draft}}(K + 1) + t_{\text{target}}}
+& = \frac{r(K + 1) \cdot t_{\text{target}}}{t_{\text{draft}}K + t_{\text{target}}}
 \end{align}
 $$
 
@@ -135,9 +136,9 @@ Using the numbers provided in the paper:
 * $t_{\text{target}} = 14.1\text{ms}$
 * $r = 0.8$ for HumanEval and $r = 0.62$ for XSum (see figure 1 in the paper)
 
-For HumanEval we get a theoretical speedup of **2.44**, while the paper reports an empirical speedup of **2.46**.
+For HumanEval we get a theoretical speedup of **2.65**, while the paper reports an empirical speedup of **2.46**.
 
-For XSum we get a theoretical speedup of **1.89**, while the paper reports an empirical speedup of **1.92**.
+For XSum we get a theoretical speedup of **2.05**, while the paper reports an empirical speedup of **1.92**.
 
 We can reproduce these results by [running our implementation with GPT-2 1.5B as our target model and GPT-2 124M as our draft model](https://github.com/jaymody/speculative-sampling)[^result]:
 
@@ -151,19 +152,19 @@ python main.py \
     --seed 123
 ```
 
-Which gives a speedup of **2.38**[^performance]:
+Which gives a speedup of **2.48**[^performance]:
 
 ```text
 Autoregressive Decode
 ---------------------
-Time = 71.64s
+Time = 55.14s
 Text = Alan Turing theorized that computers would one day become so powerful that they would be able to think like humans.
 
 In the 1950s, he proposed a way to build a computer that could think like a human. He called it the "T
 
 Speculative Decode
 ------------------
-Time = 30.11s
+Time = 22.19s
 Text = Alan Turing theorized that computers would one day become so powerful that they would be able to think for themselves. But it's not just computers that are capable of thinking for themselves.
 
 In fact, the brain is a computer, and it's capable
