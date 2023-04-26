@@ -50,7 +50,7 @@ for i in range(m):
         val = 0
         for k in range(d):
             val += (X[i][k] - X_train[j][k]) ** 2
-        dist[i][j] = np.sqrt(val)
+        dists[i][j] = np.sqrt(val)
 ```
 
 While this works, it's quite inefficient and doesn't take advantage of numpy's efficient vectorized operations. Let's change that.
@@ -61,7 +61,7 @@ While this works, it's quite inefficient and doesn't take advantage of numpy's e
 for i in range(m):
     for j in range(n):
         # element-wise subtract, element-wise square, take the sum and sqrt
-        dist[i][j] = np.sqrt(np.sum((X[i] - X_train[j]) ** 2))
+        dists[i][j] = np.sqrt(np.sum((X[i] - X_train[j]) ** 2))
 ```
 
 That wasn't too bad, we even made it easier to read if you're asking me, but we can do better.
@@ -70,7 +70,7 @@ That wasn't too bad, we even made it easier to read if you're asking me, but we 
 
 ```python
 for i in range(m):
-    dist[i, :] = np.sqrt(np.sum((X[i] - X_train) ** 2, axis=1))
+    dists[i, :] = np.sqrt(np.sum((X[i] - X_train) ** 2, axis=1))
 ```
 
 What the hell is going on here?! Ok let's break it down.
@@ -81,7 +81,7 @@ Numpy is automatically [broadcasting](https://numpy.org/doc/stable/user/basics.b
 
 The next step is easy,  we perform an element-wise square. Then, we need to take the sum of each row, so we use `np.sum` with the argument `axis=1` which tells numpy to sum across the first axis (ie the rows). Without the axis argument, `np.sum` will take the sum of every element in the matrix and output a single scalar value. The result of the `np.sum` with `axis=1` gives us a vector of size $n$.
 
-Finally, we take the element-wise square root of this vector and store it in $dist[i]$.
+Finally, we take the element-wise square root of this vector and store it in $dists[i]$.
 
 So here's a better annotated version of the code that's much easier to understand:
 
@@ -98,7 +98,7 @@ for i in range(m):
     sums = np.sum(squared, axis=1)
 
     # take the element-wise square root and store them in dists
-    dist[i, :] = np.sqrt(sums)
+    dists[i, :] = np.sqrt(sums)
 ```
 
 ## No Loops?!
