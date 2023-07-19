@@ -32,36 +32,44 @@ def autoregressive_sampling(x, model, N):
 
 Where:
 
-* `model` is a language model (like GPT) accepts as input list of token ids of length `seq_len` and outputs a matrix of probabilities of shape `[seq_len, vocab_size]`.
-* `N` is the number of tokens we we want to decode.
+* `x` is a list of integers representing the token ids of the input text
+* `model` is a language model (like GPT-2) that accepts as input a list of token ids of length `seq_len` and outputs a matrix of probabilities of shape `[seq_len, vocab_size]`.
+* `N` is the number of tokens we want to decode.
 
 The time complexity of this algorithm is $O(N \cdot t_{\text{model}})$:
 
 * $N$: The number of iterations of our while loop, which is just the number of tokens to decode $N$.
-* $t_{\text{model}}$:  The time complexity of each iteration in the loop, which is just the time taken for a single forward pass of our model $t_{\text{model}}$.
+* $t_{\text{model}}$: The time complexity of each iteration in the loop, which is just the time taken for a single forward pass of our model $t_{\text{model}}$.
 
 # Speculative Sampling
 In **speculative sampling**, we have two models:
 
-1. A smaller, faster **draft model** (i.e. 7B Chinchilla GPT model)
-2. A larger, slower **target model** (i.e. 70B Chinchilla GPT model)
+1. A smaller, faster **draft model** (e.g. DeepMind's 7B Chinchilla model)
+2. A larger, slower **target model** (e.g. DeepMind's 70B Chinchilla model)
 
 Instead of decoding a single token at each iteration, speculative sampling decodes between 1 to $K + 1$ tokens per iteration:
 
-1. The draft model decodes $K$ tokens autoregressively.
-2. This new predicted sequence is passed as input to both the draft model and target models to get their respective probability outputs.
-3. Using these probabilities, we determine how many of the predicted $K$ tokens we want to keep based on a **rejection criteria**. If a token is rejected, we resample it using a combination of the two distributions and don't accept any more tokens.
-4. If all $K$ tokens were accepted, we sample an additional final token.
+1. We use the draft model to decode $K$ tokens autoregressively.
+2. We pass the new predicted sequence to the target model to get the probability outputs.
+3. We compare the target and draft model probabilities to determine how many of the $K$ tokens we want to keep based on some **rejection criteria**. If a token is rejected, we resample it using a combination of the two distributions and don't accept any more tokens (Note: resampling the rejected token guarantees that at least one token is sampled).
+4. If all $K$ tokens are accepted, we can sample an additional final token from the target model probability output.
 
 In short, the draft model _speculates_ what the output is $K$ steps into the future. The target model determines how many of those tokens we should accept. If our draft model is able to achieve a high enough acceptance rate and is sufficiently faster than the target model, then speculative sampling will yield a speedup.
 
-You can imagine speculative sampling will work particularly well on common sequences of words. For example, the phrase "The apple doesn't fall far from the tree" is a common idiom in English. Given just "The apple doesn't fall", autoregressive decoding would require 4 forward passes of the target model, one for each word. In speculative sampling, with $K=4$, the draft model would predict "far from the tree" (since it is a common phrase), and the target model just has to do a single forward pass to verify that this is correct, saving time. Of course this won't occur every time, sometimes none of the $K$ predictions are accepted, sometimes only some of them but not all of them are accepted. 
+For example, consider the phrase "The apple doesn't fall far from the tree", a common idiom in English. Given just the first part of the phrase, "The apple doesn't fall":
+
+* Autoregressive decoding would require 4 forward passes of the target model to complete the sentence, one for each word in "far from the tree".
+* Speculative sampling, with $K=4$, would only require 1 forward pass of the target model, and 4 of the draft model. That is, the draft model would first predict "far from the tree" (since it is a common phrase), and then the target model just has to do a single forward pass to verify the prediction.
+
+Since the draft model is smaller and faster, 4 passes of the draft model + 1 pass of the target model should be faster than 4 passes of the target model. Of course, this is given that all 4 of the tokens are accepted by the target model. This won't occur every time. Sometimes none of the $K$ predictions are accepted. Sometimes only some of them are accepted.
+
+However, as long as the draft model is sufficiently faster than the target model **while also** maintaining a high enough acceptance rate, then speculative sampling should yield a speedup.
 
 Here's the full algorithm as defined in the paper:
 
 ![](https://i.imgur.com/rhR3U46.png)
 
-In code:
+In code ([full implementation here](https://github.com/jaymody/speculative-sampling)):
 
 ```python
 def speculative_sampling(x, draft_model, target_model, N, K):
@@ -118,7 +126,7 @@ The paper reports the following speedups for their 70B Chinchilla model (using a
 
 You can see that there was no performance degradation and the decoding process is 2 times faster as compared to autoregressive decoding.
 
-Let's compare these empirical speedup numbers to the theoretical speedup numbers, which we can calculate using our time complexity equations:
+Let's compare these empirical speedup numbers to theoretical speedup numbers, which we can calculate using our time complexity equations:
 
 $$
 \begin{align}
@@ -129,7 +137,7 @@ $$
 \end{align}
 $$
 
-Using the numbers provided in the paper:
+Using the values provided in the paper:
 
 * $K = 4$
 * $t_{\text{draft}} = 1.8\text{ms}$
@@ -140,7 +148,7 @@ For HumanEval we get a theoretical speedup of **2.65**, while the paper reports 
 
 For XSum we get a theoretical speedup of **2.05**, while the paper reports an empirical speedup of **1.92**.
 
-We can reproduce these results by [running our implementation with GPT-2 1.5B as our target model and GPT-2 124M as our draft model](https://github.com/jaymody/speculative-sampling)[^result]:
+We can reproduce these results by [running our implementation with GPT-2 1.5B as our target model and GPT-2 124M as our draft model](https://github.com/jaymody/speculative-sampling):
 
 ```python
 python main.py \
@@ -170,6 +178,5 @@ Text = Alan Turing theorized that computers would one day become so powerful tha
 In fact, the brain is a computer, and it's capable
 ```
 
-[^acceptance]: The wording from the paper for $r$ is a bit misleading. The paper states that $r$ is "the average number of tokens **accepted** divided by $K + 1$". This gives the impression they are reporting the rate at which **just** the draft tokens are accepted (i.e. don't include the resampled and final sampled tokens). In actuality, $r$ is "the average number of tokens **decoded** divided by $K + 1$" meaning we also includes the resampled and final token. This would make sense since otherwise, they would have to divided $r$ by $K$ and not $K + 1$ when reporting $r$. I confirmed this with the authors of the paper.
-[^result]: The implementation for GPT-2 used here is a very naive (i.e. doesn't include KV caching among many other things). That is to say, the speedup results here should be taken with a grain of salt, but still it serves as a good validation for speculative sampling.
-[^performance]: Of course, I have not verified that there is no performance degradation, but qualitatively, the output seems about right.
+[^acceptance]: The wording from the paper for $r$ is a bit misleading. The paper states that $r$ is "the average number of tokens **accepted** divided by $K + 1$". This gives the impression they are reporting the rate at which **just** the draft tokens are accepted (i.e. don't include the resampled and final sampled tokens). In actuality, $r$ is "the average number of tokens **decoded** divided by $K + 1$" meaning we also include the resampled and final token. This would make sense since otherwise, they would have to divided $r$ by $K$ and not $K + 1$ when reporting $r$. I confirmed this with the authors of the paper.
+[^performance]: The implementation for GPT-2 used here is a very naive (i.e. doesn't include KV caching among many other things). That is to say, the speedup results here should be taken with a grain of salt, but still it serves as a good validation for speculative sampling. Also, of course, I have not verified that there is no performance degradation, but qualitatively, the output seems about right.
