@@ -47,23 +47,34 @@ In **speculative sampling**, we have two models:
 1. A smaller, faster **draft model** (e.g. DeepMind's 7B Chinchilla model)
 2. A larger, slower **target model** (e.g. DeepMind's 70B Chinchilla model)
 
-Instead of decoding a single token at each iteration, speculative sampling decodes between 1 to $K + 1$ tokens per iteration:
+The idea is that the draft model _speculates_ what the output is $K$ steps into the future, while the target model determines how many of those tokens we should _accept_. Here's an outline of the algorithm:
 
-1. We use the draft model to decode $K$ tokens autoregressively.
-2. We pass the new predicted sequence to the target model to get the probability outputs.
-3. We compare the target and draft model probabilities to determine how many of the $K$ tokens we want to keep based on some **rejection criteria**. If a token is rejected, we resample it using a combination of the two distributions and don't accept any more tokens (Note: resampling the rejected token guarantees that at least one token is sampled).
+1. The draft model decodes $K$ tokens in the regular autoregressive fashion.
+2. We get the probability outputs of the target and draft model on the new predicted sequence.
+3. We compare the target and draft model probabilities to determine how many of the $K$ tokens we want to keep based on some **rejection criteria**. If a token is rejected, we **resample** it using a combination of the two distributions and don't accept any more tokens.
 4. If all $K$ tokens are accepted, we can sample an additional final token from the target model probability output.
 
-In short, the draft model _speculates_ what the output is $K$ steps into the future. The target model determines how many of those tokens we should accept. If our draft model is able to achieve a high enough acceptance rate and is sufficiently faster than the target model, then speculative sampling will yield a speedup.
+As such, instead of decoding a single token at each iteration, speculative sampling decodes between 1 to $K + 1$ tokens per iteration. If no tokens are accepted, we resample guaranteeing at least 1 token is decoded. If all $K$ tokens are accepted, then we can also sample a final token from the target models probability distribution, giving us a total of $K + 1$ tokens decoded.
 
-For example, consider the phrase "The apple doesn't fall far from the tree", a common idiom in English. Given just the first part of the phrase, "The apple doesn't fall":
+For example, consider the common idiom "The apple doesn't fall far from the tree". Given just the first part of the phrase, "The apple doesn't fall", in speculative sampling with $K=4$:
 
-* Autoregressive decoding would require 4 forward passes of the target model to complete the sentence, one for each word in "far from the tree".
-* Speculative sampling, with $K=4$, would only require 1 forward pass of the target model, and 4 of the draft model. That is, the draft model would first predict "far from the tree" (since it is a common phrase), and then the target model just has to do a single forward pass to verify the prediction.
+1. The draft model speculates the output to be "far from the tree" (4 tokens)
+2. The target model looks at those tokens, and decides to accept them all, and also sample a final token (i.e. maybe it samples a period ".").
 
-Since the draft model is smaller and faster, 4 passes of the draft model + 1 pass of the target model should be faster than 4 passes of the target model. Of course, this is given that all 4 of the tokens are accepted by the target model. This won't occur every time. Sometimes none of the $K$ predictions are accepted. Sometimes only some of them are accepted.
+As such, in a single iteration, we were able to decode 5 tokens instead of just a single token. However, this may not always be the case, consider instead the input "Not all heroes":
 
-However, as long as the draft model is sufficiently faster than the target model **while also** maintaining a high enough acceptance rate, then speculative sampling should yield a speedup.
+1. The draft model speculates the output to be "wear capes and hats" (4 tokens)
+2. The target model looks at those tokens, but decides to only accepts the first two "wear capes" and discard the rest.
+
+In this case, only 2 tokens were accepted.
+
+As long as the draft model is sufficiently faster than the target model **while also** maintaining a high enough **acceptance rate**, then speculative sampling should yield a speedup.
+
+The intuition behind speculative sampling is that certain strings of tokens (common phrases, pronouns, punctuation, etc ...) are fairly easy to predict, so a smaller, less powerful, but faster draft model should be able to quickly predict these instead of having our slower target model doing all the work.
+
+Another important property of speculative sampling is that it is **mathematically equivalent** to sampling from the target model, due to the way the rejection criteria and resampling method are designed. The [proof for this is shown in the paper (Theorem 1)](https://arxiv.org/pdf/2302.01318.pdf#page=10).
+
+Finally, speculative sampling requires no changes to the model's architecture, training, or anything like that. It can be used with existing models alongside other inference techniques such as quantization, hardware acceleration, flash attention, etc ... It can also be used with top-p/top-k/temperature.
 
 Here's the full algorithm as defined in the paper:
 
@@ -72,6 +83,10 @@ Here's the full algorithm as defined in the paper:
 In code ([full implementation here](https://github.com/jaymody/speculative-sampling)):
 
 ```python
+def max_fn(x):
+    x_max = np.where(x > 0, x, 0)
+    return x_max / np.sum(x_max)
+
 def speculative_sampling(x, draft_model, target_model, N, K):
     # NOTE: paper indexes arrays starting from 1, python indexes from 0, so
     # we have to add an extra -1 term when indexing using n, T, or t
@@ -157,26 +172,41 @@ python main.py \
     --draft_model_size "124M" \
     --target_model_size "1558M" \
     --K 4 \
+    --temperature 0 \
     --seed 123
 ```
 
-Which gives a speedup of **2.48**[^performance]:
+Which gives a speedup of **2.23**:
 
 ```text
-Autoregressive Decode
----------------------
-Time = 55.14s
+Time = 60.64s
 Text = Alan Turing theorized that computers would one day become so powerful that they would be able to think like humans.
 
 In the 1950s, he proposed a way to build a computer that could think like a human. He called it the "T
 
 Speculative Decode
 ------------------
-Time = 22.19s
-Text = Alan Turing theorized that computers would one day become so powerful that they would be able to think for themselves. But it's not just computers that are capable of thinking for themselves.
+Time = 27.15s
+Text = Alan Turing theorized that computers would one day become so powerful that they would be able to think like humans.
 
-In fact, the brain is a computer, and it's capable
+In the 1950s, he proposed a way to build a computer that could think like a human. He called it the "T
 ```
 
+Note, the output is the exact same for both methods due to the use of `temperature = 0`, which corresponds to **greedy sampling** (always taking the token with the highest probability). If a non-zero temperature were used, this would not be the case. Although speculative sampling is mathematically the same as sampling from the target model directly, the results of autoregressive and speculative sampling will be different due to randomness. Speculative sampling giving a different result than autoregressive sampling is akin to running autoregressive sampling but with a different seed. When `temperature = 0` however, a 100% of the probability is assigned to a single token, so sampling from the distribution becomes deterministic, hence why the outputs are the same. If we instead used `temperature = 0.5`, we'd get different outputs:
+
+```
+Autoregressive Decode
+---------------------
+Time = 49.06s
+Text = Alan Turing theorized that computers would one day become self-aware. This is known as the "Turing Test" and it is a test that has been used to determine if a computer is intelligent.
+
+The Turing Test is based on the
+
+Speculative Decode
+------------------
+Time = 31.60s
+Text = Alan Turing theorized that computers would one day become so powerful that they would be able to simulate the behavior of human minds. The Turing Test is a test that asks a computer to recognize whether a given piece of text is a human or a computer generated
+```
+
+
 [^acceptance]: The wording from the paper for $r$ is a bit misleading. The paper states that $r$ is "the average number of tokens **accepted** divided by $K + 1$". This gives the impression they are reporting the rate at which **just** the draft tokens are accepted (i.e. don't include the resampled and final sampled tokens). In actuality, $r$ is "the average number of tokens **decoded** divided by $K + 1$" meaning we also include the resampled and final token. This would make sense since otherwise, they would have to divided $r$ by $K$ and not $K + 1$ when reporting $r$. I confirmed this with the authors of the paper.
-[^performance]: The implementation for GPT-2 used here is a very naive (i.e. doesn't include KV caching among many other things). That is to say, the speedup results here should be taken with a grain of salt, but still it serves as a good validation for speculative sampling. Also, of course, I have not verified that there is no performance degradation, but qualitatively, the output seems about right.
