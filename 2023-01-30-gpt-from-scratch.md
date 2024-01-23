@@ -616,7 +616,7 @@ Let's break down each of these three sections into more detail.
 
 ### Embeddings
 #### Token Embeddings
-Token IDs by themselves are not very good representations for a neural network. For one, the relative magnitudes of the token IDs falsely communicate information (for example, if `Apple = 5` and `Table = 10` in our vocab, then we are implying that `2 * Table = Apple`). Secondly, a single number is not a lot of _dimensionality_ for a neural network to work with.
+Token IDs by themselves are not very good representations for a neural network. For one, the relative magnitudes of the token IDs falsely communicate information (for example, if `Apple = 5` and `Table = 10` in our vocab, then we are implying that `2 * Apple = Table`). Secondly, a single number is not a lot of _dimensionality_ for a neural network to work with.
 
 To address these limitations, we'll take advantage of [word vectors](https://jaykmody.com/blog/attention-intuition/#word-vectors-and-similarity), specifically via a learned embedding matrix:
 
