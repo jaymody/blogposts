@@ -12,6 +12,7 @@ In this post, we'll implement a GPT from scratch in just [60 lines of `numpy`](h
 * All the code for this blog post can be found at [github.com/jaymody/picoGPT](https://github.com/jaymody/picoGPT).
 * [Hacker news thread](https://news.ycombinator.com/item?id=34726115)
 * [Chinese translation](https://jiqihumanr.github.io/2023/04/13/gpt-from-scratch/)
+* [Japanese translation](https://mlwizardry.netlify.app/nlp/gpt-from-scratch/)
 
 **EDIT (Feb 9th, 2023):** Added a "What's Next" section and updated the intro with some notes.
 **EDIT (Feb 28th, 2023):** Added some additional sections to "What's Next".
