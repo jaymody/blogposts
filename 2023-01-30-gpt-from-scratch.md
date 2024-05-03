@@ -6,9 +6,8 @@ description: "Implementing a GPT model from scratch in NumPy."
 In this post, we'll implement a GPT from scratch in just [60 lines of `numpy`](https://github.com/jaymody/picoGPT/blob/29e78cc52b58ed2c1c483ffea2eb46ff6bdec785/gpt2_pico.py#L3-L58). We'll then load the trained GPT-2 model weights released by OpenAI into our implementation and generate some text.
 
 **Note:**
-* This post assumes familiarity with Python, NumPy, and some basic experience training neural networks.
-* This implementation is missing tons of features on purpose to keep it as simple as possible while remaining complete. The goal is to provide a **simple yet complete technical introduction to the GPT as an educational tool**.
-* The GPT architecture is just one small part of what makes LLMs what they are today.[^architecture].
+* This post assumes familiarity with Python, NumPy, and some basic experience with neural networks.
+* This implementation is for educational purposes, so it's missing lots of features/improvements on purpose to keep it as simple as possible while remaining complete.
 * All the code for this blog post can be found at [github.com/jaymody/picoGPT](https://github.com/jaymody/picoGPT).
 * [Hacker news thread](https://news.ycombinator.com/item?id=34726115)
 * [Chinese translation](https://jiqihumanr.github.io/2023/04/13/gpt-from-scratch/)
@@ -29,7 +28,7 @@ GPT stands for **Generative Pre-trained Transformer**. It's a type of neural net
 * **Pre-trained**: A GPT is _trained_ on lots of text from books, the internet, etc ...
 * **Transformer**: A GPT is a decoder-only _transformer_ neural network.
 
-Large Language Models (LLMs) like [OpenAI's GPT-3](https://en.wikipedia.org/wiki/GPT-3), [Google's LaMDA](https://blog.google/technology/ai/lamda/), and [Cohere's Command XLarge](https://docs.cohere.ai/docs/command-beta) are just GPTs under the hood. What makes them special is they happen to be **1)** very big (billions of parameters) and **2)** trained on lots of data (hundreds of gigabytes of text).
+Large Language Models (LLMs) like [OpenAI's GPT-3](https://en.wikipedia.org/wiki/GPT-3) are just GPTs under the hood. What makes them special is they happen to be **1)** very big (billions of parameters) and **2)** trained on lots of data (hundreds of gigabytes of text).
 
 Fundamentally, a GPT **generates text** given a **prompt**. Even with this very simple API (input = text, output = text), a well-trained GPT can do some pretty awesome stuff like [write your emails](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Demo-of-Drafting-an-Email.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1), [summarize a book](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Example-Book-Summarization.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1), [give you instagram caption ideas](https://khrisdigital.com/wp-content/uploads/2022/12/image-1.png), [explain black holes to a 5 year old](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Examples-Explaining-Black-Holes.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1), [code in SQL](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Demo-of-Writing-SQL-Queries.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1), and [even write your will](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/Chat-GPT-Example-Writing-a-Will.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1).
 
@@ -172,11 +171,11 @@ def lm_loss(inputs: list[int], params) -> float:
     # of course, we don't have a label for inputs[-1], so we exclude it from x
     #
     # as such, for N inputs, we have N - 1 langauge modeling example pairs
-    x, y = inputs[:-1], inputs[1:]
+    x, y = inputs[:-1], inputs[1:] # both have shape [num_tokens_in_seq - 1]
 
     # forward pass
     # all the predicted next token probability distributions at each position
-    output = gpt(x, params)
+    output = gpt(x, params) # has shape [num_tokens_in_seq - 1, num_tokens_in_vocab]
 
     # cross entropy loss
     # we take the average over all N-1 examples
@@ -201,7 +200,7 @@ This is a heavily simplified training setup, but it illustrates the point. Notic
 
 Notice, we don't use explicitly labelled data. Instead, we are able to produce the input/label pairs from just the raw text itself. This is referred to as **[self-supervised learning](https://en.wikipedia.org/wiki/Self-supervised_learning)**.
 
-Self-supervision enables us to massively scale train data, just get our hands on as much raw text as possible and throw it at the model. For example, GPT-3 was trained on **300 billion tokens** of text from the internet and books:
+Self-supervision enables us to massively scale training data. Just get our hands on as much raw text as possible and throw it at the model. For example, GPT-3 was trained on **300 billion tokens** of text from the internet and books:
 
 ![Table 2.2 from GPT-3 paper](https://miro.medium.com/max/1400/1*Sc3Gi73hepgrOLnx8bXFBA.png)
 
@@ -216,13 +215,13 @@ The "pre-training on a general task + fine-tuning on a specific task" strategy i
 ### Prompting
 In principle, the original [GPT](https://s3-us-west-2.amazonaws.com/openai-assets/research-covers/language-unsupervised/language_understanding_paper.pdf) paper was only about the benefits of pre-training a transformer model for transfer learning. The paper showed that pre-training a 117M GPT achieved state-of-the-art performance on various **NLP** (natural language processing) tasks when fine-tuned on labelled datasets.
 
-It wasn't until the [GPT-2](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) and  [GPT-3](https://arxiv.org/abs/2005.14165) papers that we realized a GPT model pre-trained on enough data with enough parameters was capable of performing any arbitrary task **by itself**, no fine-tuning needed. Just prompt the model, perform autoregressive language modeling, and like voila, the model magically gives us an appropriate response. This is referred to as **in-context learning**, because the model is using just the context of the prompt to perform the task. In-context learning can be zero shot, one shot, or few shot:
+It wasn't until the [GPT-2](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) and  [GPT-3](https://arxiv.org/abs/2005.14165) papers that we realized a GPT model pre-trained on enough data with enough parameters was capable of performing any arbitrary task **by itself**, no fine-tuning needed. Just prompt the model, perform autoregressive language modeling, and voila, the model magically gives us an appropriate response. This is referred to as **in-context learning**, because the model is using just the context of the prompt to perform the task. In-context learning can be zero shot, one shot, or few shot:
 
 ![Figure 2.1 from the GPT-3 Paper](https://i.imgur.com/VKZXC0K.png)
 
-Generating text given a prompt is also referred to as **conditional generation**, since our model is generating some output _conditioned_ on some input.
+Generating text given a prompt is also sometimes referred to as **conditional generation**, since our model is generating some output _conditioned_ on some input.
 
-GPTs are not limited to NLP tasks. You can condition the model on anything you want. For example, you can turn a GPT into a chatbot (i.e. [ChatGPT](https://openai.com/blog/chatgpt/)) by conditioning it on the conversation history. You can also further condition the chatbot to behave a certain way by prepending the prompt with some kind of description (i.e. "You are a chatbot. Be polite, speak in full sentences, don't say harmful things, etc ..."). Conditioning the model like this can even give your [chatbot a persona](https://imgur.com/a/AbDFcgk). However, this is not robust, you can still ["jailbreak" the model and make it misbehave](https://twitter.com/zswitten/status/1598380220943593472).
+GPTs are not limited to NLP tasks. You can condition the model on anything you want. For example, you can turn a GPT into a **chatbot** (i.e. [ChatGPT](https://openai.com/blog/chatgpt/)) by conditioning it on the conversation history. You can also further condition the chatbot to behave a certain way by prepending the prompt with some kind of description (i.e. "You are a chatbot. Be polite, speak in full sentences, don't say harmful things, etc ..."). Conditioning the model like this can even give your [chatbot a persona](https://imgur.com/a/AbDFcgk). This is often referred to as a **system prompt**. However, this is not robust, you can still ["jailbreak" the model and make it misbehave](https://twitter.com/zswitten/status/1598380220943593472).
 
 With that out of the way, let's finally get to the actual implementation.
 
@@ -307,7 +306,7 @@ if __name__ == "__main__":
 Breaking down each of the 4 sections:
 
 1. The `gpt2` function is the actual GPT code we'll be implementing. You'll notice that the function signature includes some extra stuff in addition to `inputs`:
-	- `wte`, `wpe`, `blocks`, and `ln_f` the parameters of our model.
+	- `wte`, `wpe`, `blocks`, and `ln_f` are the parameters of our model.
 	- `n_head` is a hyperparameter that is needed during the forward pass.
 2. The `generate` function is the autoregressive decoding algorithm we saw earlier. We use greedy sampling for simplicity. [`tqdm`](https://www.google.com/search?q=tqdm) is a progress bar to help us visualize the decoding process as it generates tokens one at a time.
 3. The `main` function handles:
@@ -778,8 +777,8 @@ We can enhance self attention by introducing projections for `q`, `k`, `v` and t
 ```python
 def self_attention(x, w_k, w_q, w_v, w_proj): # [n_seq, n_embd] -> [n_seq, n_embd]
     # qkv projections
-    q = x @ w_k # [n_seq, n_embd] @ [n_embd, n_embd] -> [n_seq, n_embd]
-    k = x @ w_q # [n_seq, n_embd] @ [n_embd, n_embd] -> [n_seq, n_embd]
+    q = x @ w_q # [n_seq, n_embd] @ [n_embd, n_embd] -> [n_seq, n_embd]
+    k = x @ w_k # [n_seq, n_embd] @ [n_embd, n_embd] -> [n_seq, n_embd]
     v = x @ w_v # [n_seq, n_embd] @ [n_embd, n_embd] -> [n_seq, n_embd]
 
     # perform self attention
@@ -916,7 +915,7 @@ def causal_self_attention(x, c_attn, c_proj): # [n_seq, n_embd] -> [n_seq, n_emb
     q, k, v = np.split(x, 3, axis=-1) # [n_seq, 3*n_embd] -> 3 of [n_seq, n_embd]
 
     # causal mask to hide future inputs from being attended to
-    causal_mask = (1 - np.tri(x.shape[0]), dtype=x.dtype) * -1e10  # [n_seq, n_seq]
+    causal_mask = (1 - np.tri(x.shape[0], dtype=x.dtype)) * -1e10  # [n_seq, n_seq]
 
     # perform causal self attention
     x = attention(q, k, v, causal_mask) # [n_seq, n_embd] -> [n_seq, n_embd]
@@ -1040,8 +1039,8 @@ Then computing the gradients is as easy as:
 ```python
 def lm_loss(params, inputs, n_head) -> float:
     x, y = inputs[:-1], inputs[1:]
-    output = gpt2(x, **params, n_head=n_head)
-    loss = np.mean(-np.log(output[y]))
+    logits = gpt2(x, **params, n_head=n_head)
+    loss = np.mean(-log_softmax(logits)[y])
     return loss
 
 grads = jax.grad(lm_loss)(params, inputs, n_head)
@@ -1102,42 +1101,6 @@ def generate(inputs, eos_id, max_seq_len):
 
 GPT-2 was not pre-trained with an EOS token, so we can't use this approach in our code, but most LLMs nowadays use an EOS token.
 
-### Unconditional Generation
-Generating text with our model requires us to **condition** it with a prompt. However, we can also make our model perform **unconditional generation**, where the model generates text without any kind of input prompt.
-
-This is achieved by prepending a special **beginning of sentence (BOS) token** to the start of the input during pre-training (i.e. `tokens = ["<|BOS|>", "not", "all", "heroes", "wear", "capes", "."]`). Then, to generate text unconditionally, we input a list that contains just the BOS token:
-
-```python
-def generate_unconditioned(bos_id, n_tokens_to_generate):
-	inputs = [bos_id]
-    for _ in range(n_tokens_to_generate):
-        output = gpt(inputs)
-        next_id = np.argmax(output[-1])
-        inputs.append(int(next_id))
-    return inputs[1:]
-```
-
-GPT-2 was pre-trained with a BOS token (which is confusingly named `<|endoftext|>`), so running unconditional generation with our implementation is as easy as changing the [following line](https://github.com/jaymody/picoGPT/blob/dfb5df895a7a6b18705866a0bf7ec04947d8e05a/gpt2.py#L104) to:
-
-```python
-input_ids = encoder.encode(prompt) if prompt else [encoder.encoder["<|endoftext|>"]]
-```
-
-And then running:
-
-```bash
-python gpt2.py ""
-```
-
-Which generates:
-
-```text
-The first time I saw the new version of the game, I was so excited. I was so excited to see the new version of the game, I was so excited to see the new version
-```
-
-Because we are using greedy sampling, the output is not very good (repetitive) and is deterministic (i.e. same output each time we run the code). To get generations that are both higher quality and non-deterministic, we'd need to sample directly from the distribution (ideally after applying something like top-p).
-
-Unconditional generation is not particularly useful, but it's a fun way of demonstrating the abilities of a GPT.
 
 ### Fine-tuning
 We briefly touched on fine-tuning in the training section. Recall, fine-tuning is when we re-use the pre-trained weights to train the model on some downstream task. We call this process transfer-learning.
@@ -1186,8 +1149,6 @@ def singe_example_loss_fn(inputs: list[int], label: int, params) -> float:
     return loss
 ```
 
-We can also perform **multi-label classification** (i.e. an example can belong to **multiple** classes, not just a single class) by applying `sigmoid` instead of `softmax` and taking the binary cross entropy loss with respect to each class (see [this stack-exchange question](https://stats.stackexchange.com/questions/207794/what-loss-function-for-multi-class-multi-label-classification-tasks-in-neural-n)).
-
 #### Generative Fine-tuning
 Some tasks can't be neatly categorized into classes. For example, consider the task of summarization. We can fine-tune these types of task by simply performing language modeling on the input concatenated with the label. For example, here's what a single summarization training sample might look like:
 
@@ -1229,11 +1190,11 @@ OpenAI's [InstructGPT](https://arxiv.org/pdf/2203.02155.pdf) on the other hand w
 ![Table 1 and 2 from InstructGPT paper](https://i.imgur.com/FaRRbCa.png)
 
 #### Parameter Efficient Fine-tuning
-When we talk about fine-tuning in the above sections, it is assumed that we are updating all of the model parameters. While this yields the best performance, it is costly both in terms of compute (need to back propagate over the entire model) and in terms of storage (for each fine-tuned model, you need to store a completely new copy of the parameters).
+When we talk about fine-tuning in the above sections, it is assumed that we are updating all of the model parameters. While this yields the best performance, it is costly both in terms of compute (need to back propagate over the entire model) and in terms of storage (for each fine-tuned model, you need to store a completely new copy of the parameters). For instruction fine-tuning, this is fine, we want maximum performance, but if you then wanted to fine-tune 100 different models for various downstream tasks, then you'd have a problem.
 
-The most simple approach to this problem is to **only update the head** and **freeze** (i.e. make it untrainable) the rest of the model. While this would speed up training and greatly reduce the number of new parameters, it would not perform particularly well since we are losing out on the _deep_ in deep learning. We could instead **selectively freeze** specific layers (i.e. freeze all layers except the last 4, or freeze every other layer, or freeze all parameters except multi-head attention parameters), which would help restore the depth. As a result this will perform a lot better, but we become a lot less parameter efficient and we lose out on some of those training speed gains.
+The most simple approach to this problem is to **only update the head** and **freeze** (i.e. make untrainable) the rest of the model. This would speed up training and greatly reduce the number of new parameters, however it would not perform nearly as well as a full fine-tune (we are lacking the _deep_ in deep learning). We could instead **selectively freeze** specific layers (i.e. freeze all layers except the last 4, or freeze every other layer, or freeze all parameters except multi-head attention parameters), which would help restore some of the depth. This will perform a lot better, but we become a lot less parameter efficient and reduce our training speed ups.
 
-Instead, we can utilize **parameter-efficient fine-tuning** methods. This is still an active area of research, and there are [lots](https://aclanthology.org/2021.emnlp-main.243.pdf) [of](https://arxiv.org/pdf/2110.07602.pdf) [different](https://arxiv.org/pdf/2101.00190.pdf) [methods](https://arxiv.org/pdf/2103.10385.pdf) [to](https://arxiv.org/pdf/2106.09685.pdf) [choose](https://arxiv.org/pdf/1902.00751.pdf) [from](https://arxiv.org/abs/2205.05638).
+Instead, we can utilize **parameter-efficient fine-tuning** (PEFT) methods. PEFT is active area of research, and there are [lots](https://aclanthology.org/2021.emnlp-main.243.pdf) [of](https://arxiv.org/pdf/2110.07602.pdf) [different](https://arxiv.org/pdf/2101.00190.pdf) [methods](https://arxiv.org/pdf/2103.10385.pdf) [to](https://arxiv.org/pdf/2106.09685.pdf) [choose](https://arxiv.org/pdf/1902.00751.pdf) [from](https://arxiv.org/abs/2205.05638).
 
 As an example, take the [Adapters paper](https://arxiv.org/pdf/1902.00751.pdf). In this approach, we add an additional "adapter" layer after the FFN and MHA layers in the transformer block. The adapter layer is just a simple 2 layer fully connected neural network, where the input and output dimensions are `n_embd`, and the hidden dimension is smaller than `n_embd`:
 
@@ -1251,10 +1212,6 @@ The size of the hidden dimension is a hyper-parameter that we can set, enabling 
 $$
 \text{softmax}(\vec{x})_i=\frac{e^{x_i}}{\sum_je^{x_j}}
 $$
-
-[^architecture]: Training at scale, collecting terabytes of data, making the model fast, evaluating performance, and aligning the models to serve humans is the life's work of the 100s of engineer/researchers required to make LLMs what they are today, not just the architecture. The GPT architecture just happened to be the first neural network architecture that has nice scaling properties, is highly parallelizable on GPUs, and is good at modeling sequences. The real secret sauce comes from scaling the data and model ([as always](http://www.incompleteideas.net/IncIdeas/BitterLesson.html)), GPT just enables us to do that[^attention]. It's possible that the transformer has hit [the hardware lottery](https://hardwarelottery.github.io), and some other architecture is still out there waiting to dethrone the transformer.
-
-[^attention]: Actually, I might argue that there is something inherently better about the way attention models sequences vs recurrent/convolutional layers, but now we in a footnote inside a footnote, so I digress.
 
 [^jax]: I love JAX ❤️.
 

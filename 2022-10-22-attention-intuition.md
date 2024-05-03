@@ -4,11 +4,11 @@ date: 2022-10-22
 description: "Deriving the equation for scaled dot product attention."
 ---
 
-ChatGPT and other large language models use a special type of neural network called the transformer. The transformer's main feature is the _attention_ mechanism. Attention is defined by the equation:
+ChatGPT and other large language models use a special type of neural network called the transformer. The transformer defining feature is the _attention_ mechanism. Attention is defined by the equation:
 
 $$\text{attention}(Q, K, V) = \text{softmax}(\frac{QK^T}{\sqrt{d_k}})V$$
 
-Attention can come in different forms, but this version of attention (known as scaled dot product attention) was first proposed in the original [transformer paper]( https://arxiv.org/pdf/1706.03762.pdf), and is still widely used by as the basis for many transformer based neural networks. In this post, we'll build an intuition for the above equation by deriving it from the ground up.
+Attention can come in different forms, but this version of attention (known as scaled dot product attention) was first proposed in the original [transformer paper]( https://arxiv.org/pdf/1706.03762.pdf). In this post, we'll build an intuition for the above equation by deriving it from the ground up.
 
 To start, let's take a look at the problem attention aims to solve, the key-value lookup.
 
@@ -43,9 +43,9 @@ What if instead we wanted to do a lookup based on the _meaning_ of a word?
 
 ## Key-Value Lookups based on Meaning
 ---
-Say we wanted to look up the word "fruit" in our previous example, how do we choose which "key" is the best match?
+Say we wanted to look up the word "fruit" in our previous example, how do we choose which key is the best match?
 
-It's obviously not "chair", but both "apple" and "banana" seem appropriate matches. It's hard to choose one or the other, fruit feels more like a combination of apple and banana rather than a strict match for either.
+It's obviously not "chair", but both "apple" and "banana" seem like a good match. It's hard to choose one or the other, fruit feels more like a combination of apple and banana rather than a strict match for either.
 
 So, let's not choose. Instead, we'll do exactly that, take a combination of apple and banana. For example, say we assign a 60% meaning based match for apple, a 40% match for banana, and 0% match for chair. We compute our final output value as the **weighted sum** of the values with the percentages:
 
@@ -76,7 +76,7 @@ You can see that words that are _similar_ are clustered together. Fruits are clu
 You can even imagine doing arithmetic on word vectors. For example, given the words "king", "queen", "man", and "woman" and their respective vector representations $\boldsymbol{v}_{\text{king}}, \boldsymbol{v}_{\text{queen}}, \boldsymbol{v}_{\text{man}}, \boldsymbol{v}_{\text{women}}$, we can imagine that:
 $$\boldsymbol{v}_{\text{queen}} - \boldsymbol{v}_{\text{woman}} + \boldsymbol{v}_{\text{man}} \sim \boldsymbol{v}_{\text{king}}$$That is, the vector for "queen" minus "woman" plus "man" should result in a vector that is _similar_ to the vector for "king".
 
-But what does it exactly mean for two vectors to be _similar_? In the fruits/vegetables example, similarity was described by the distances between vectors (aka their [euclidean distance](https://en.wikipedia.org/wiki/Euclidean_distance)).
+But what does it exactly mean for two vectors to be _similar_? In the fruits/vegetables example, we were using distance as a measure of similarity (in particular, [euclidean distance](https://en.wikipedia.org/wiki/Euclidean_distance)).
 
 There are also [other ways to measure similarity between two vectors](https://towardsdatascience.com/9-distance-measures-in-data-science-918109d069fa), each with its own advantages and disadvantages. Possibly the simplest measure of similarity between two vectors is their dot product:
 $$\boldsymbol{v} \cdot \boldsymbol{w} = \sum_{i}v_i w_i$$[3blue1brown has a great video on the intuition behind dot product](https://www.youtube.com/watch?v=LyGKycYT2v0), but for our purposes all we need to know is:
