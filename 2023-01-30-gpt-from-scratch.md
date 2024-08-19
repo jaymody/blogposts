@@ -179,7 +179,7 @@ def lm_loss(inputs: list[int], params) -> float:
 
     # cross entropy loss
     # we take the average over all N-1 examples
-    loss = np.mean(-np.log(output[y]))
+    loss = np.mean(-np.log(output[np.arange(len(output)), y]))
 
     return loss
 
